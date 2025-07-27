@@ -109,24 +109,6 @@ curl -X POST http://localhost:8080/api/v1/subscriptions \
 curl "http://localhost:8080/api/v1/subscriptions/total-cost?user_id=60601fee-2bf1-4721-ae6f-7636e79a0cba&start_date=01-2025&end_date=12-2025"
 ```
 
-## 🗄 Database Schema
-
-```sql
-CREATE TABLE subscriptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    service_name VARCHAR(255) NOT NULL,
-    price INTEGER NOT NULL,
-    user_id UUID NOT NULL,
-    start_date VARCHAR(7) NOT NULL, -- MM-YYYY format
-    end_date VARCHAR(7),            -- MM-YYYY format, optional
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
-CREATE INDEX idx_subscriptions_dates ON subscriptions(start_date, end_date);
-```
-
 ## 📖 API Documentation
 
 Interactive Swagger documentation is available at `/swagger/` when the service is running.
