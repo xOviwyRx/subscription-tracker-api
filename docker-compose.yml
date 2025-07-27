@@ -15,26 +15,27 @@ services:
       - ./migrations:/docker-entrypoint-initdb.d
     networks:
       - subscription_tracker_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: subscription_tracker_api
     ports:
       - "8080:8080"
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=subscription_tracker
-      - DB_SSLMODE=disable
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8080
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - subscription_tracker_network
     restart: unless-stopped
+    volumes:
+      - .env:/app/.env
 
 volumes:
   postgres_data:

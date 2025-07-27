@@ -29,8 +29,7 @@ type DatabaseConfig struct {
 
 func Load() (*Config, error) {
 	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		// .env file is optional, so we don't return error
+	if err := godotenv.Load("/app/.env"); err != nil {
 		fmt.Println("No .env file found, using environment variables")
 	}
 
