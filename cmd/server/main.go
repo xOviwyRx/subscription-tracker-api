@@ -88,9 +88,10 @@ func main() {
 			"service": "subscription-tracker-api",
 		})
 	})
-
 	// Swagger documentation
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.Static("/docs", "./docs")
+	url := ginSwagger.URL("http://localhost:8080/docs/swagger.json")
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 
 	// Start server
 	serverAddr := cfg.Server.Host + ":" + cfg.Server.Port
