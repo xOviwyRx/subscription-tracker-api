@@ -108,12 +108,3 @@ curl -X POST http://localhost:8080/api/v1/subscriptions \
 ```bash
 curl "http://localhost:8080/api/v1/subscriptions/total-cost?user_id=60601fee-2bf1-4721-ae6f-7636e79a0cba&start_date=01-2025&end_date=12-2025"
 ```
-
-## 📖 API Documentation
-
-Interactive Swagger documentation is available at `/swagger/` when the service is running.
-
-To regenerate Swagger docs:
-```bash
-swag init -g cmd/server/main.go -o ./docs
-```
