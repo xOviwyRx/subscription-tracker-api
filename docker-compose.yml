@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: subscription_tracker_db
+    environment:
+      POSTGRES_DB: subscription_tracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - subscription_tracker_network
+
+  app:
+    build: .
+    container_name: subscription_tracker_api
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=subscription_tracker
+      - DB_SSLMODE=disable
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+    depends_on:
+      - postgres
+    networks:
+      - subscription_tracker_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  subscription_tracker_network:
+    driver: bridge
