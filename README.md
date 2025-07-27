@@ -127,30 +127,11 @@ CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX idx_subscriptions_dates ON subscriptions(start_date, end_date);
 ```
 
-## ⚙️ Configuration
-
-The application uses YAML configuration file:
-
-```yaml
-# config.yaml
-server:
-  host: "localhost"
-  port: "8080"
-
-database:
-  host: "localhost"
-  port: "5432"
-  user: "postgres"
-  password: "password"
-  dbname: "subscription_tracker"
-  sslmode: "disable"
-```
-
 ## 📖 API Documentation
 
 Interactive Swagger documentation is available at `/swagger/` when the service is running.
 
 To regenerate Swagger docs:
 ```bash
-swag init -g cmd/server/main.go -o ./cmd/server/docs
+swag init -g cmd/server/main.go -o ./docs
 ```
