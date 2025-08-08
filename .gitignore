@@ -58,8 +58,3 @@ temp/
 /bin/
 /build/
 /dist/
-
-# Documentation
-docs/swagger.json
-docs/swagger.yaml
-docs/docs.go
