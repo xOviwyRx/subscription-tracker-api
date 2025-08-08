@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: subscription_tracker
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
@@ -31,11 +31,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - .env
     networks:
       - subscription_tracker_network
     restart: unless-stopped
-    volumes:
-      - .env:/app/.env
 
 volumes:
   postgres_data:
