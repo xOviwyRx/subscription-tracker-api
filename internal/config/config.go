@@ -11,6 +11,12 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
+	Logging  LoggingConfig  `yaml:"logging"`
+}
+
+type LoggingConfig struct {
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
 }
 
 type ServerConfig struct {
@@ -77,6 +83,21 @@ func Load() (*Config, error) {
 	}
 	if config.Database.SSLMode == "" {
 		config.Database.SSLMode = "disable"
+	}
+
+	if logLevel := os.Getenv("LOG_LEVEL"); logLevel != "" {
+		config.Logging.Level = logLevel
+	}
+	if logFormat := os.Getenv("LOG_FORMAT"); logFormat != "" {
+		config.Logging.Format = logFormat
+	}
+
+	// Set logging defaults
+	if config.Logging.Level == "" {
+		config.Logging.Level = "info"
+	}
+	if config.Logging.Format == "" {
+		config.Logging.Format = "json"
 	}
 
 	return config, nil

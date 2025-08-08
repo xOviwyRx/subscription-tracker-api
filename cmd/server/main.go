@@ -6,6 +6,7 @@ import (
 	"subscription_tracker_api/internal/handlers"
 	"subscription_tracker_api/internal/repository"
 	"subscription_tracker_api/internal/service"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -19,16 +20,16 @@ import (
 // @host localhost:8080
 // @BasePath /api/v1
 func main() {
-	// Initialize logger
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.JSONFormatter{})
-	logger.Info("Starting Subscription Tracker API...")
 
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Fatal("Failed to load configuration: ", err)
+		log.Fatal("Failed to load configuration: ", err)
 	}
+
+	// Initialize logger with configuration
+	logger := setupLogger(cfg.Logging)
+	logger.Info("Starting Subscription Tracker API...")
 
 	// Connect to database
 	db, err := repository.NewDatabase(cfg)
@@ -103,4 +104,43 @@ func main() {
 	if err := router.Run(serverAddr); err != nil {
 		logger.Fatal("Failed to start server: ", err)
 	}
+}
+
+func setupLogger(loggingConfig config.LoggingConfig) *logrus.Logger {
+	logger := logrus.New()
+
+	// Set log level
+	level, err := logrus.ParseLevel(loggingConfig.Level)
+	if err != nil {
+		level = logrus.InfoLevel
+		logger.Warnf("Invalid log level '%s', defaulting to info", loggingConfig.Level)
+	}
+	logger.SetLevel(level)
+
+	// Set formatter
+	switch loggingConfig.Format {
+	case "json":
+		logger.SetFormatter(&logrus.JSONFormatter{
+			TimestampFormat: time.RFC3339,
+			FieldMap: logrus.FieldMap{
+				logrus.FieldKeyTime:  "timestamp",
+				logrus.FieldKeyLevel: "level",
+				logrus.FieldKeyMsg:   "message",
+			},
+		})
+	case "text":
+		logger.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp: true,
+		})
+	default:
+		logger.SetFormatter(&logrus.JSONFormatter{})
+		logger.Warnf("Invalid log format '%s', defaulting to json", loggingConfig.Format)
+	}
+
+	logger.WithFields(logrus.Fields{
+		"level":  loggingConfig.Level,
+		"format": loggingConfig.Format,
+	}).Info("Logger initialized")
+
+	return logger
 }
