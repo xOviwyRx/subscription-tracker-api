@@ -5,11 +5,15 @@ import (
 	"log"
 
 	"subscription_tracker_api/internal/config"
-	"subscription_tracker_api/internal/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/golang-migrate/migrate/v4"
+	migrate_pg "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 )
 
 // Database holds the database connection
@@ -47,11 +51,26 @@ func NewDatabase(cfg *config.Config) (*Database, error) {
 func (d *Database) RunMigrations() error {
 	log.Println("Running database migrations...")
 
-	err := d.DB.AutoMigrate(
-		&models.Subscription{},
-	)
+	sqlDB, err := d.DB.DB()
 	if err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+		return fmt.Errorf("failed to get sql.DB from GORM: %w", err)
+	}
+
+	driver, err := migrate_pg.WithInstance(sqlDB, &migrate_pg.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://db/migrations",
+		"postgres", driver)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration error: %w", err)
 	}
 
 	log.Println("Database migrations completed successfully")

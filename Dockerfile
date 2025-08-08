@@ -39,6 +39,8 @@ COPY --from=builder /app/main .
 # Copy the docs folder (swagger documentation) from cmd/server
 COPY --from=builder /app/cmd/server/docs ./docs
 
+COPY --from=builder /app/db/migrations ./db/migrations
+
 # Expose port
 EXPOSE 8080
 

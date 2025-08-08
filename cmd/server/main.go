@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"subscription_tracker_api/internal/config"
 	"subscription_tracker_api/internal/handlers"
 	"subscription_tracker_api/internal/repository"
@@ -38,8 +39,10 @@ func main() {
 
 	// Run migrations
 	if err := db.RunMigrations(); err != nil {
-		logger.Fatal("Failed to run migrations: ", err)
+		log.Fatalf("Migration error: %v", err)
 	}
+
+	log.Println("Migrations applied successfully")
 
 	// Initialize repository
 	subscriptionRepo := repository.NewSubscriptionRepository(db.DB)
