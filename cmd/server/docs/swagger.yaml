@@ -1,0 +1,281 @@
+basePath: /api/v1
+definitions:
+  models.CostCalculationResponse:
+    properties:
+      end_date:
+        type: string
+      service_name:
+        type: string
+      start_date:
+        type: string
+      subscriptions:
+        items:
+          $ref: '#/definitions/models.Subscription'
+        type: array
+      total_cost:
+        type: integer
+      user_id:
+        type: string
+    type: object
+  models.CreateSubscriptionRequest:
+    properties:
+      end_date:
+        description: 'Optional, Format: MM-YYYY'
+        type: string
+      price:
+        minimum: 1
+        type: integer
+      service_name:
+        type: string
+      start_date:
+        description: 'Format: MM-YYYY'
+        type: string
+      user_id:
+        type: string
+    required:
+    - price
+    - service_name
+    - start_date
+    - user_id
+    type: object
+  models.Subscription:
+    properties:
+      created_at:
+        type: string
+      end_date:
+        description: 'Optional, Format: MM-YYYY'
+        type: string
+      id:
+        type: integer
+      price:
+        minimum: 1
+        type: integer
+      service_name:
+        type: string
+      start_date:
+        description: 'Format: MM-YYYY'
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    required:
+    - price
+    - service_name
+    - start_date
+    - user_id
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: REST API for managing user subscriptions
+  title: Subscription Tracker API
+  version: "1.0"
+paths:
+  /subscriptions:
+    get:
+      description: Get list of subscriptions with optional filtering
+      parameters:
+      - description: Filter by user ID (UUID)
+        in: query
+        name: user_id
+        type: string
+      - description: Filter by service name
+        in: query
+        name: service_name
+        type: string
+      - description: 'Limit number of results (default: 50, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset for pagination (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Subscription'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List subscriptions
+      tags:
+      - subscriptions
+    post:
+      consumes:
+      - application/json
+      description: Create a new subscription record
+      parameters:
+      - description: Subscription data
+        in: body
+        name: subscription
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateSubscriptionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Subscription'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new subscription
+      tags:
+      - subscriptions
+  /subscriptions/{id}:
+    delete:
+      description: Delete a subscription by ID
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete subscription
+      tags:
+      - subscriptions
+    get:
+      description: Get a single subscription by its ID
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Subscription'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get subscription by ID
+      tags:
+      - subscriptions
+    put:
+      consumes:
+      - application/json
+      description: Update an existing subscription
+      parameters:
+      - description: Subscription ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update data
+        in: body
+        name: updates
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Subscription'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update subscription
+      tags:
+      - subscriptions
+  /subscriptions/cost:
+    get:
+      description: Calculate the total cost of subscriptions within a date range with
+        optional filtering
+      parameters:
+      - description: Filter by user ID (UUID)
+        in: query
+        name: user_id
+        type: string
+      - description: Filter by service name
+        in: query
+        name: service_name
+        type: string
+      - description: Start date (MM-YYYY format)
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: End date (MM-YYYY format)
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CostCalculationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Calculate total subscription cost
+      tags:
+      - subscriptions
+swagger: "2.0"
