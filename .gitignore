@@ -46,6 +46,7 @@ logs/
 *.sql
 *.dump
 *.backup
+!db/migrations/*.sql
 
 # Docker
 .dockerignore
