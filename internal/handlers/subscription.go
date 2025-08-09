@@ -43,7 +43,8 @@ func (h *SubscriptionHandler) CreateSubscription(c *gin.Context) {
 		return
 	}
 
-	subscription, err := h.service.CreateSubscription(&req)
+	// Use transaction-based creation for atomic operations
+	subscription, err := h.service.CreateSubscriptionWithTransaction(&req)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to create subscription")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -107,7 +108,8 @@ func (h *SubscriptionHandler) UpdateSubscription(c *gin.Context) {
 		return
 	}
 
-	subscription, err := h.service.UpdateSubscription(uint(id), updates)
+	// Use transaction-based update for atomic operations
+	subscription, err := h.service.UpdateSubscriptionWithTransaction(uint(id), updates)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to update subscription")
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -134,7 +136,8 @@ func (h *SubscriptionHandler) DeleteSubscription(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteSubscription(uint(id))
+	// Use transaction-based deletion for atomic operations with validation
+	err = h.service.DeleteSubscriptionWithValidation(uint(id))
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to delete subscription")
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})

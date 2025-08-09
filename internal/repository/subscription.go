@@ -18,11 +18,6 @@ func NewSubscriptionRepository(db *gorm.DB) *SubscriptionRepository {
 	return &SubscriptionRepository{db: db}
 }
 
-// Create creates a new subscription
-func (r *SubscriptionRepository) Create(subscription *models.Subscription) error {
-	return r.db.Create(subscription).Error
-}
-
 // CreateWithTransaction creates a new subscription within a transaction
 func (r *SubscriptionRepository) CreateWithTransaction(subscription *models.Subscription) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
@@ -55,11 +50,6 @@ func (r *SubscriptionRepository) GetByID(id uint) (*models.Subscription, error) 
 	return &subscription, nil
 }
 
-// Update updates a subscription
-func (r *SubscriptionRepository) Update(subscription *models.Subscription) error {
-	return r.db.Save(subscription).Error
-}
-
 // UpdateWithTransaction updates a subscription within a transaction
 func (r *SubscriptionRepository) UpdateWithTransaction(subscription *models.Subscription) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
@@ -89,11 +79,6 @@ func (r *SubscriptionRepository) UpdateWithTransaction(subscription *models.Subs
 		// Update the subscription
 		return tx.Save(subscription).Error
 	})
-}
-
-// Delete deletes a subscription (soft delete)
-func (r *SubscriptionRepository) Delete(id uint) error {
-	return r.db.Delete(&models.Subscription{}, id).Error
 }
 
 // DeleteWithValidation deletes a subscription with validation within a transaction

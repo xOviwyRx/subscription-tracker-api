@@ -18,32 +18,6 @@ func NewSubscriptionService(repo *repository.SubscriptionRepository, logger *log
 	return &SubscriptionService{repo: repo, logger: logger}
 }
 
-// CreateSubscription creates a new subscription (simple version)
-func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionRequest) (*models.Subscription, error) {
-	// Basic validation
-	if req.ServiceName == "" || req.Price <= 0 || req.UserID == uuid.Nil {
-		return nil, errors.New("invalid input data")
-	}
-
-	if !isValidDate(req.StartDate) {
-		return nil, errors.New("start_date must be in MM-YYYY format")
-	}
-
-	subscription := &models.Subscription{
-		ServiceName: req.ServiceName,
-		Price:       req.Price,
-		UserID:      req.UserID,
-		StartDate:   req.StartDate,
-		EndDate:     req.EndDate,
-	}
-
-	err := s.repo.Create(subscription)
-	if err != nil {
-		return nil, err
-	}
-	return subscription, nil
-}
-
 // CreateSubscriptionWithTransaction creates a new subscription with transaction-based validation
 func (s *SubscriptionService) CreateSubscriptionWithTransaction(req *models.CreateSubscriptionRequest) (*models.Subscription, error) {
 	// Enhanced validation
@@ -98,44 +72,6 @@ func (s *SubscriptionService) CreateSubscriptionWithTransaction(req *models.Crea
 // GetSubscriptionByID retrieves a subscription by ID
 func (s *SubscriptionService) GetSubscriptionByID(id uint) (*models.Subscription, error) {
 	return s.repo.GetByID(id)
-}
-
-// UpdateSubscription updates an existing subscription (simple version)
-func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]interface{}) (*models.Subscription, error) {
-	subscription, err := s.repo.GetByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	// Apply simple updates
-	if serviceName, ok := updates["service_name"].(string); ok && serviceName != "" {
-		subscription.ServiceName = serviceName
-	}
-	if price, ok := updates["price"].(float64); ok && price > 0 {
-		subscription.Price = int(price)
-	}
-	if startDate, ok := updates["start_date"].(string); ok && startDate != "" {
-		if !isValidDate(startDate) {
-			return nil, errors.New("start_date must be in MM-YYYY format")
-		}
-		subscription.StartDate = startDate
-	}
-	if endDate, ok := updates["end_date"].(string); ok {
-		if endDate != "" {
-			if !isValidDate(endDate) {
-				return nil, errors.New("end_date must be in MM-YYYY format")
-			}
-			subscription.EndDate = &endDate
-		} else {
-			subscription.EndDate = nil
-		}
-	}
-
-	err = s.repo.Update(subscription)
-	if err != nil {
-		return nil, err
-	}
-	return subscription, nil
 }
 
 // UpdateSubscriptionWithTransaction updates an existing subscription with transaction-based validation
@@ -214,11 +150,6 @@ func (s *SubscriptionService) UpdateSubscriptionWithTransaction(id uint, updates
 	}).Info("Subscription updated successfully")
 
 	return subscription, nil
-}
-
-// DeleteSubscription deletes a subscription (simple version)
-func (s *SubscriptionService) DeleteSubscription(id uint) error {
-	return s.repo.Delete(id)
 }
 
 // DeleteSubscriptionWithValidation deletes a subscription with validation
