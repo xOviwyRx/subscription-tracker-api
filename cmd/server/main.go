@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
 	"subscription_tracker_api/internal/config"
 	"subscription_tracker_api/internal/handlers"
 	"subscription_tracker_api/internal/repository"
 	"subscription_tracker_api/internal/service"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -41,10 +46,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Failed to connect to database: ", err)
 	}
-	defer func() {
-		logger.Info("Closing database connection...")
-		db.Close()
-	}()
 	logger.Info("Database connection established successfully")
 
 	// Run migrations
@@ -134,16 +135,53 @@ func main() {
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 	logger.Info("Swagger documentation configured at /swagger/index.html")
 
-	// Start server
+	// Create HTTP server
 	serverAddr := cfg.Server.Host + ":" + cfg.Server.Port
-	logger.WithFields(logrus.Fields{
-		"address": serverAddr,
-		"version": "1.0",
-	}).Info("Starting HTTP server...")
-
-	if err := router.Run(serverAddr); err != nil {
-		logger.WithError(err).Fatal("Failed to start server")
+	srv := &http.Server{
+		Addr:    serverAddr,
+		Handler: router,
 	}
+
+	// Channel to listen for interrupt signals
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		logger.WithFields(logrus.Fields{
+			"address": serverAddr,
+			"version": "1.0",
+		}).Info("Starting HTTP server...")
+
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.WithError(err).Fatal("Failed to start server")
+		}
+	}()
+
+	logger.Info("Server started successfully. Press Ctrl+C to gracefully shutdown...")
+
+	// Wait for interrupt signal
+	<-quit
+	logger.Info("Shutdown signal received, initiating graceful shutdown...")
+
+	// Create a deadline for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Shutdown the server
+	logger.Info("Shutting down HTTP server...")
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.WithError(err).Error("Server forced to shutdown")
+	} else {
+		logger.Info("HTTP server shutdown gracefully")
+	}
+
+	// Close database connection
+	logger.Info("Closing database connection...")
+	db.Close()
+	logger.Info("Database connection closed")
+
+	logger.Info("Application shutdown completed")
 }
 
 func setupLogger(loggingConfig config.LoggingConfig) *logrus.Logger {
