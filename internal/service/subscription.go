@@ -5,6 +5,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"regexp"
+	"strconv"
+	"strings"
 	"subscription_tracker_api/internal/models"
 	"subscription_tracker_api/internal/repository"
 )
@@ -172,7 +174,7 @@ func (s *SubscriptionService) ListSubscriptions(userID *uuid.UUID, serviceName *
 	return s.repo.List(userID, serviceName, limit, offset)
 }
 
-// CalculateTotalCost calculates total cost - main business requirement
+// CalculateTotalCost calculates total cost with proper month consideration and database aggregation
 func (s *SubscriptionService) CalculateTotalCost(req *models.CostCalculationRequest) (*models.CostCalculationResponse, error) {
 	// Validate date formats
 	if !isValidDate(req.StartDate) {
@@ -187,18 +189,21 @@ func (s *SubscriptionService) CalculateTotalCost(req *models.CostCalculationRequ
 		return nil, errors.New("end_date must be after start_date")
 	}
 
-	// Get subscriptions in date range
+	// Calculate total months in requested period
+	totalMonths := calculateMonthsBetween(req.StartDate, req.EndDate)
+
+	// Use repository method for database aggregation
+	totalCost, err := s.repo.CalculateTotalCostInDB(req.UserID, req.ServiceName, req.StartDate, req.EndDate, totalMonths)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to calculate total cost in database")
+		return nil, err
+	}
+
+	// Get subscriptions for response details
 	subscriptions, err := s.repo.GetSubscriptionsInDateRange(req.UserID, req.ServiceName, req.StartDate, req.EndDate)
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to get subscriptions in date range")
 		return nil, err
-	}
-
-	// Calculate total cost
-	totalCost := 0
-	for _, sub := range subscriptions {
-		// TODO: Implement proper monthly calculation based on date ranges
-		totalCost += sub.Price
 	}
 
 	response := &models.CostCalculationResponse{
@@ -216,10 +221,24 @@ func (s *SubscriptionService) CalculateTotalCost(req *models.CostCalculationRequ
 		"start_date":         req.StartDate,
 		"end_date":           req.EndDate,
 		"total_cost":         totalCost,
+		"total_months":       totalMonths,
 		"subscription_count": len(subscriptions),
-	}).Info("Total cost calculated")
+	}).Info("Total cost calculated with database aggregation")
 
 	return response, nil
+}
+
+// Helper function to calculate months between MM-YYYY dates
+func calculateMonthsBetween(startDate, endDate string) int {
+	startParts := strings.Split(startDate, "-")
+	endParts := strings.Split(endDate, "-")
+
+	startMonth, _ := strconv.Atoi(startParts[0])
+	startYear, _ := strconv.Atoi(startParts[1])
+	endMonth, _ := strconv.Atoi(endParts[0])
+	endYear, _ := strconv.Atoi(endParts[1])
+
+	return (endYear-startYear)*12 + (endMonth - startMonth) + 1
 }
 
 // Simple date validation helper

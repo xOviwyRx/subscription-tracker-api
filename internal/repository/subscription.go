@@ -251,3 +251,29 @@ func (r *SubscriptionRepository) GetSubscriptionsInDateRange(userID *uuid.UUID, 
 
 	return subscriptions, err
 }
+
+// CalculateTotalCostInDB performs cost calculation with database aggregation
+func (r *SubscriptionRepository) CalculateTotalCostInDB(userID *uuid.UUID, serviceName *string, startDate, endDate string, totalMonths int) (int, error) {
+	var result struct {
+		TotalCost int `gorm:"column:total_cost"`
+	}
+
+	query := r.db.Model(&models.Subscription{}).
+		Where("start_date <= ? AND (end_date IS NULL OR end_date >= ?)", endDate, startDate)
+
+	// Apply filters
+	if userID != nil {
+		query = query.Where("user_id = ?", *userID)
+	}
+	if serviceName != nil {
+		query = query.Where("service_name = ?", *serviceName)
+	}
+
+	// Database aggregation with month consideration
+	err := query.Select("COALESCE(SUM(price * ?), 0) as total_cost", totalMonths).Scan(&result).Error
+	if err != nil {
+		return 0, err
+	}
+
+	return result.TotalCost, nil
+}
