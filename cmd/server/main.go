@@ -114,7 +114,7 @@ func main() {
 		v1.GET("/subscriptions", subscriptionHandler.ListSubscriptions)
 
 		// Cost calculation endpoint
-		v1.GET("/subscriptions/cost", subscriptionHandler.CalculateTotalCost)
+		v1.GET("/subscriptions/calculate-cost", subscriptionHandler.CalculateTotalCost)
 	}
 	logger.WithField("routes_count", 6).Info("API routes configured successfully")
 
