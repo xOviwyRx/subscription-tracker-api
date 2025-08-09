@@ -12,11 +12,11 @@ import (
 )
 
 type SubscriptionService struct {
-	repo   *repository.SubscriptionRepository
+	repo   repository.SubscriptionRepositoryInterface
 	logger *logrus.Logger
 }
 
-func NewSubscriptionService(repo *repository.SubscriptionRepository, logger *logrus.Logger) *SubscriptionService {
+func NewSubscriptionService(repo repository.SubscriptionRepositoryInterface, logger *logrus.Logger) *SubscriptionService {
 	return &SubscriptionService{repo: repo, logger: logger}
 }
 
