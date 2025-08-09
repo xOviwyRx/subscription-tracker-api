@@ -81,7 +81,7 @@ docker-compose up -d
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v1/subscriptions/total-cost` | Get total cost for period with filtering |
+| `GET` | `/api/v1/subscriptions/calculate-cost` | Get total cost for period with filtering |
 
 ### Query Parameters for Filtering
 
@@ -106,5 +106,5 @@ curl -X POST http://localhost:8080/api/v1/subscriptions \
 
 **Get Total Cost:**
 ```bash
-curl "http://localhost:8080/api/v1/subscriptions/total-cost?user_id=60601fee-2bf1-4721-ae6f-7636e79a0cba&start_date=01-2025&end_date=12-2025"
+curl "http://localhost:8080/api/v1/subscriptions/calculate-cost?user_id=60601fee-2bf1-4721-ae6f-7636e79a0cba&start_date=01-2025&end_date=12-2025"
 ```
