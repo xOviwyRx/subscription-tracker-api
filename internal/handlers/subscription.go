@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"subscription_tracker_api/internal/models"
 	"subscription_tracker_api/internal/service"
 
@@ -24,6 +25,17 @@ func NewSubscriptionHandler(service *service.SubscriptionService, logger *logrus
 }
 
 // CreateSubscription creates a new subscription
+// @Summary Create a new subscription
+// @Description Create a new subscription for a user
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param subscription body models.CreateSubscriptionRequest true "Subscription data"
+// @Success 201 {object} models.Subscription "Subscription created successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad Request - Invalid input data or validation errors"
+// @Failure 409 {object} models.ErrorResponse "Conflict - Duplicate subscription or constraint violation"
+// @Failure 500 {object} models.ErrorResponse "Internal Server Error - Database or server errors"
+// @Router /subscriptions [post]
 func (h *SubscriptionHandler) CreateSubscription(c *gin.Context) {
 	h.logger.Info("Received request to create subscription")
 
@@ -45,7 +57,11 @@ func (h *SubscriptionHandler) CreateSubscription(c *gin.Context) {
 	subscription, err := h.service.CreateSubscriptionWithTransaction(&req)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to create subscription")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		// Determine appropriate status code based on error type
+		statusCode := h.getStatusCodeForError(err)
+
+		c.JSON(statusCode, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -58,6 +74,15 @@ func (h *SubscriptionHandler) CreateSubscription(c *gin.Context) {
 }
 
 // GetSubscription retrieves a subscription by ID
+// @Summary Get subscription by ID
+// @Description Retrieve a single subscription by its ID
+// @Tags subscriptions
+// @Produce json
+// @Param id path int true "Subscription ID"
+// @Success 200 {object} models.Subscription "Subscription retrieved successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad Request - Invalid subscription ID format"
+// @Failure 404 {object} models.ErrorResponse "Not Found - Subscription not found"
+// @Router /subscriptions/{id} [get]
 func (h *SubscriptionHandler) GetSubscription(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -87,6 +112,19 @@ func (h *SubscriptionHandler) GetSubscription(c *gin.Context) {
 }
 
 // UpdateSubscription updates an existing subscription
+// @Summary Update an existing subscription
+// @Description Update subscription details by ID
+// @Tags subscriptions
+// @Accept json
+// @Produce json
+// @Param id path int true "Subscription ID"
+// @Param updates body map[string]interface{} true "Fields to update"
+// @Success 200 {object} models.Subscription "Subscription updated successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad Request - Invalid input data or validation errors"
+// @Failure 404 {object} models.ErrorResponse "Not Found - Subscription does not exist"
+// @Failure 409 {object} models.ErrorResponse "Conflict - Constraint violation during update"
+// @Failure 500 {object} models.ErrorResponse "Internal Server Error - Database or server errors"
+// @Router /subscriptions/{id} [put]
 func (h *SubscriptionHandler) UpdateSubscription(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -114,7 +152,11 @@ func (h *SubscriptionHandler) UpdateSubscription(c *gin.Context) {
 	subscription, err := h.service.UpdateSubscriptionWithTransaction(uint(id), updates)
 	if err != nil {
 		h.logger.WithError(err).WithField("subscription_id", id).Error("Failed to update subscription")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		// Determine appropriate status code based on error type
+		statusCode := h.getStatusCodeForError(err)
+
+		c.JSON(statusCode, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -127,6 +169,15 @@ func (h *SubscriptionHandler) UpdateSubscription(c *gin.Context) {
 }
 
 // DeleteSubscription deletes a subscription
+// @Summary Delete subscription by ID
+// @Description Delete a subscription by its ID
+// @Tags subscriptions
+// @Param id path int true "Subscription ID"
+// @Success 204 "Subscription deleted successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad Request - Invalid subscription ID format"
+// @Failure 404 {object} models.ErrorResponse "Not Found - Subscription not found"
+// @Failure 500 {object} models.ErrorResponse "Internal Server Error - Database or server errors"
+// @Router /subscriptions/{id} [delete]
 func (h *SubscriptionHandler) DeleteSubscription(c *gin.Context) {
 	idStr := c.Param("id")
 
@@ -152,6 +203,18 @@ func (h *SubscriptionHandler) DeleteSubscription(c *gin.Context) {
 }
 
 // ListSubscriptions retrieves all subscriptions with optional filtering
+// @Summary List subscriptions
+// @Description Retrieve subscriptions with optional filtering
+// @Tags subscriptions
+// @Produce json
+// @Param user_id query string false "Filter by user ID (UUID)"
+// @Param service_name query string false "Filter by service name"
+// @Param limit query int false "Number of results to return (default: 50)"
+// @Param offset query int false "Number of results to skip (default: 0)"
+// @Success 200 {array} models.Subscription "Subscriptions retrieved successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad Request - Invalid query parameters"
+// @Failure 500 {object} models.ErrorResponse "Internal Server Error - Failed to retrieve subscriptions"
+// @Router /subscriptions [get]
 func (h *SubscriptionHandler) ListSubscriptions(c *gin.Context) {
 	h.logger.Info("Received request to list subscriptions")
 
@@ -210,6 +273,18 @@ func (h *SubscriptionHandler) ListSubscriptions(c *gin.Context) {
 }
 
 // CalculateTotalCost calculates total cost of subscriptions for a period
+// @Summary Calculate total cost of subscriptions
+// @Description Calculate the total cost of subscriptions within a date range
+// @Tags subscriptions
+// @Produce json
+// @Param start_date query string true "Start date in MM-YYYY format"
+// @Param end_date query string true "End date in MM-YYYY format"
+// @Param user_id query string false "Filter by user ID (UUID)"
+// @Param service_name query string false "Filter by service name"
+// @Success 200 {object} models.CostCalculationResponse "Cost calculation completed successfully"
+// @Failure 400 {object} models.ErrorResponse "Bad Request - Invalid date format or missing required parameters"
+// @Failure 500 {object} models.ErrorResponse "Internal Server Error - Database query failed or server errors"
+// @Router /subscriptions/calculate-cost [get]
 func (h *SubscriptionHandler) CalculateTotalCost(c *gin.Context) {
 	h.logger.Info("Received request to calculate total cost")
 
@@ -252,7 +327,11 @@ func (h *SubscriptionHandler) CalculateTotalCost(c *gin.Context) {
 	response, err := h.service.CalculateTotalCost(req)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to calculate total cost")
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		// Determine appropriate status code based on error type
+		statusCode := h.getStatusCodeForError(err)
+
+		c.JSON(statusCode, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -263,4 +342,59 @@ func (h *SubscriptionHandler) CalculateTotalCost(c *gin.Context) {
 	}).Info("Cost calculation completed successfully")
 
 	c.JSON(http.StatusOK, response)
+}
+
+// Helper method to determine appropriate HTTP status code based on error type
+func (h *SubscriptionHandler) getStatusCodeForError(err error) int {
+	errorMsg := err.Error()
+
+	// Validation errors - 400 Bad Request
+	validationErrors := []string{
+		"invalid input data",
+		"must be in MM-YYYY format",
+		"must be after start_date",
+		"must be before end_date",
+		"are required",
+		"must be greater than 0",
+		"price must be greater than 0",
+		"service_name, price, and user_id are required",
+	}
+
+	for _, validationErr := range validationErrors {
+		if strings.Contains(errorMsg, validationErr) {
+			return http.StatusBadRequest // 400
+		}
+	}
+
+	// Not found errors - 404 Not Found
+	notFoundErrors := []string{
+		"not found",
+		"does not exist",
+		"record not found",
+	}
+
+	for _, notFoundErr := range notFoundErrors {
+		if strings.Contains(errorMsg, notFoundErr) {
+			return http.StatusNotFound // 404
+		}
+	}
+
+	// Conflict errors - 409 Conflict (e.g., duplicate subscription)
+	conflictErrors := []string{
+		"already exists",
+		"duplicate",
+		"conflict",
+		"constraint violation",
+		"unique constraint",
+		"UNIQUE constraint failed",
+	}
+
+	for _, conflictErr := range conflictErrors {
+		if strings.Contains(errorMsg, conflictErr) {
+			return http.StatusConflict // 409
+		}
+	}
+
+	// Database/internal errors - 500 Internal Server Error
+	return http.StatusInternalServerError // 500
 }

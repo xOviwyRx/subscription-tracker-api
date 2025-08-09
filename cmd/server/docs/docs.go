@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/subscriptions": {
             "get": {
-                "description": "Get list of subscriptions with optional filtering",
+                "description": "Retrieve subscriptions with optional filtering",
                 "produces": [
                     "application/json"
                 ],
@@ -40,20 +40,20 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Limit number of results (default: 50, max: 100)",
+                        "description": "Number of results to return (default: 50)",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset for pagination (default: 0)",
+                        "description": "Number of results to skip (default: 0)",
                         "name": "offset",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Subscriptions retrieved successfully",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -62,18 +62,21 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid query parameters",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Failed to retrieve subscriptions",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
             },
             "post": {
-                "description": "Create a new subscription record",
+                "description": "Create a new subscription for a user",
                 "consumes": [
                     "application/json"
                 ],
@@ -97,43 +100,57 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Subscription created successfully",
                         "schema": {
                             "$ref": "#/definitions/models.Subscription"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid input data or validation errors",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - Duplicate subscription or constraint violation",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal Server Error - Database or server errors",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/subscriptions/cost": {
+        "/subscriptions/calculate-cost": {
             "get": {
-                "description": "Calculate the total cost of subscriptions within a date range with optional filtering",
+                "description": "Calculate the total cost of subscriptions within a date range",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "subscriptions"
                 ],
-                "summary": "Calculate total subscription cost",
+                "summary": "Calculate total cost of subscriptions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date in MM-YYYY format",
+                        "name": "start_date",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date in MM-YYYY format",
+                        "name": "end_date",
+                        "in": "query",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "Filter by user ID (UUID)",
@@ -145,36 +162,25 @@ const docTemplate = `{
                         "description": "Filter by service name",
                         "name": "service_name",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start date (MM-YYYY format)",
-                        "name": "start_date",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "End date (MM-YYYY format)",
-                        "name": "end_date",
-                        "in": "query",
-                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Cost calculation completed successfully",
                         "schema": {
                             "$ref": "#/definitions/models.CostCalculationResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid date format or missing required parameters",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Database query failed or server errors",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
@@ -182,7 +188,7 @@ const docTemplate = `{
         },
         "/subscriptions/{id}": {
             "get": {
-                "description": "Get a single subscription by its ID",
+                "description": "Retrieve a single subscription by its ID",
                 "produces": [
                     "application/json"
                 ],
@@ -201,33 +207,27 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Subscription retrieved successfully",
                         "schema": {
                             "$ref": "#/definitions/models.Subscription"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid subscription ID format",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Subscription not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
             },
             "put": {
-                "description": "Update an existing subscription",
+                "description": "Update subscription details by ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -237,7 +237,7 @@ const docTemplate = `{
                 "tags": [
                     "subscriptions"
                 ],
-                "summary": "Update subscription",
+                "summary": "Update an existing subscription",
                 "parameters": [
                     {
                         "type": "integer",
@@ -247,7 +247,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Update data",
+                        "description": "Fields to update",
                         "name": "updates",
                         "in": "body",
                         "required": true,
@@ -259,37 +259,43 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Subscription updated successfully",
                         "schema": {
                             "$ref": "#/definitions/models.Subscription"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid input data or validation errors",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Subscription does not exist",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict - Constraint violation during update",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Database or server errors",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
             },
             "delete": {
-                "description": "Delete a subscription by ID",
+                "description": "Delete a subscription by its ID",
                 "tags": [
                     "subscriptions"
                 ],
-                "summary": "Delete subscription",
+                "summary": "Delete subscription by ID",
                 "parameters": [
                     {
                         "type": "integer",
@@ -301,24 +307,24 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "No Content"
+                        "description": "Subscription deleted successfully"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Bad Request - Invalid subscription ID format",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Subscription not found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Database or server errors",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
                         }
                     }
                 }
@@ -378,6 +384,15 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "models.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Invalid input data"
                 }
             }
         },

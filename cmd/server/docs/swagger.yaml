@@ -38,6 +38,12 @@ definitions:
     - start_date
     - user_id
     type: object
+  models.ErrorResponse:
+    properties:
+      error:
+        example: Invalid input data
+        type: string
+    type: object
   models.Subscription:
     properties:
       created_at:
@@ -74,7 +80,7 @@ info:
 paths:
   /subscriptions:
     get:
-      description: Get list of subscriptions with optional filtering
+      description: Retrieve subscriptions with optional filtering
       parameters:
       - description: Filter by user ID (UUID)
         in: query
@@ -84,11 +90,11 @@ paths:
         in: query
         name: service_name
         type: string
-      - description: 'Limit number of results (default: 50, max: 100)'
+      - description: 'Number of results to return (default: 50)'
         in: query
         name: limit
         type: integer
-      - description: 'Offset for pagination (default: 0)'
+      - description: 'Number of results to skip (default: 0)'
         in: query
         name: offset
         type: integer
@@ -96,24 +102,26 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Subscriptions retrieved successfully
           schema:
             items:
               $ref: '#/definitions/models.Subscription'
             type: array
         "400":
-          description: Bad Request
+          description: Bad Request - Invalid query parameters
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error - Failed to retrieve subscriptions
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
       summary: List subscriptions
       tags:
       - subscriptions
     post:
       consumes:
       - application/json
-      description: Create a new subscription record
+      description: Create a new subscription for a user
       parameters:
       - description: Subscription data
         in: body
@@ -125,27 +133,27 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Subscription created successfully
           schema:
             $ref: '#/definitions/models.Subscription'
         "400":
-          description: Bad Request
+          description: Bad Request - Invalid input data or validation errors
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: Conflict - Duplicate subscription or constraint violation
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal Server Error - Database or server errors
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Create a new subscription
       tags:
       - subscriptions
   /subscriptions/{id}:
     delete:
-      description: Delete a subscription by ID
+      description: Delete a subscription by its ID
       parameters:
       - description: Subscription ID
         in: path
@@ -154,24 +162,24 @@ paths:
         type: integer
       responses:
         "204":
-          description: No Content
+          description: Subscription deleted successfully
         "400":
-          description: Bad Request
+          description: Bad Request - Invalid subscription ID format
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
         "404":
-          description: Not Found
+          description: Not Found - Subscription not found
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Delete subscription
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error - Database or server errors
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete subscription by ID
       tags:
       - subscriptions
     get:
-      description: Get a single subscription by its ID
+      description: Retrieve a single subscription by its ID
       parameters:
       - description: Subscription ID
         in: path
@@ -182,35 +190,31 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Subscription retrieved successfully
           schema:
             $ref: '#/definitions/models.Subscription'
         "400":
-          description: Bad Request
+          description: Bad Request - Invalid subscription ID format
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
         "404":
-          description: Not Found
+          description: Not Found - Subscription not found
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
       summary: Get subscription by ID
       tags:
       - subscriptions
     put:
       consumes:
       - application/json
-      description: Update an existing subscription
+      description: Update subscription details by ID
       parameters:
       - description: Subscription ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Update data
+      - description: Fields to update
         in: body
         name: updates
         required: true
@@ -221,29 +225,42 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Subscription updated successfully
           schema:
             $ref: '#/definitions/models.Subscription'
         "400":
-          description: Bad Request
+          description: Bad Request - Invalid input data or validation errors
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/models.ErrorResponse'
         "404":
-          description: Not Found
+          description: Not Found - Subscription does not exist
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Update subscription
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: Conflict - Constraint violation during update
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error - Database or server errors
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update an existing subscription
       tags:
       - subscriptions
-  /subscriptions/cost:
+  /subscriptions/calculate-cost:
     get:
-      description: Calculate the total cost of subscriptions within a date range with
-        optional filtering
+      description: Calculate the total cost of subscriptions within a date range
       parameters:
+      - description: Start date in MM-YYYY format
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: End date in MM-YYYY format
+        in: query
+        name: end_date
+        required: true
+        type: string
       - description: Filter by user ID (UUID)
         in: query
         name: user_id
@@ -252,30 +269,22 @@ paths:
         in: query
         name: service_name
         type: string
-      - description: Start date (MM-YYYY format)
-        in: query
-        name: start_date
-        required: true
-        type: string
-      - description: End date (MM-YYYY format)
-        in: query
-        name: end_date
-        required: true
-        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Cost calculation completed successfully
           schema:
             $ref: '#/definitions/models.CostCalculationResponse'
         "400":
-          description: Bad Request
+          description: Bad Request - Invalid date format or missing required parameters
           schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Calculate total subscription cost
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error - Database query failed or server errors
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Calculate total cost of subscriptions
       tags:
       - subscriptions
 swagger: "2.0"
