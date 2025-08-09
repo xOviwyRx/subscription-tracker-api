@@ -63,7 +63,7 @@ docker-compose up -d
 
 3. **Access the application**
 - API: http://localhost:8080
-- Swagger UI: http://localhost:8080/swagger/
+- Swagger UI: http://localhost:8080/swagger/index.html
 
 ## 📚 API Endpoints
 
