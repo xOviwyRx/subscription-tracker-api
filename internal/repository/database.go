@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 
 	"github.com/golang-migrate/migrate/v4"
 	migrate_pg "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -29,12 +29,12 @@ func NewDatabase(cfg *config.Config, logger *logrus.Logger) (*Database, error) {
 	logger.WithFields(logrus.Fields{
 		"host":     cfg.Database.Host,
 		"port":     cfg.Database.Port,
-		"database": cfg.Database.Name,
+		"database": cfg.Database.DBName,
 		"user":     cfg.Database.User,
 	}).Info("Connecting to database with configuration")
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: gormlogger.Default.LogMode(gormlogger.Info),
 	})
 	if err != nil {
 		logger.WithError(err).Error("Failed to establish database connection")
