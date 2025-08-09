@@ -20,8 +20,8 @@ import (
 // @host localhost:8080
 // @BasePath /api/v1
 func main() {
-
 	// Load configuration
+	log.Println("Loading application configuration...")
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal("Failed to load configuration: ", err)
@@ -30,32 +30,61 @@ func main() {
 	// Initialize logger with configuration
 	logger := setupLogger(cfg.Logging)
 	logger.Info("Starting Subscription Tracker API...")
+	logger.WithFields(logrus.Fields{
+		"host": cfg.Server.Host,
+		"port": cfg.Server.Port,
+	}).Info("Configuration loaded successfully")
 
 	// Connect to database
-	db, err := repository.NewDatabase(cfg)
+	logger.Info("Establishing database connection...")
+	db, err := repository.NewDatabase(cfg, logger)
 	if err != nil {
 		logger.Fatal("Failed to connect to database: ", err)
 	}
-	defer db.Close()
+	defer func() {
+		logger.Info("Closing database connection...")
+		db.Close()
+	}()
+	logger.Info("Database connection established successfully")
 
 	// Run migrations
+	logger.Info("Running database migrations...")
 	if err := db.RunMigrations(); err != nil {
-		log.Fatalf("Migration error: %v", err)
+		logger.WithError(err).Fatal("Migration error")
 	}
-
-	log.Println("Migrations applied successfully")
+	logger.Info("Database migrations completed successfully")
 
 	// Initialize repository
-	subscriptionRepo := repository.NewSubscriptionRepository(db.DB)
+	logger.Info("Initializing repository layer...")
+	subscriptionRepo := repository.NewSubscriptionRepository(db.DB, logger)
+	logger.Info("Repository layer initialized successfully")
 
 	// Initialize service
+	logger.Info("Initializing service layer...")
 	subscriptionService := service.NewSubscriptionService(subscriptionRepo, logger)
+	logger.Info("Service layer initialized successfully")
 
 	// Initialize handlers
+	logger.Info("Initializing HTTP handlers...")
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionService, logger)
+	logger.Info("HTTP handlers initialized successfully")
 
 	// Setup Gin router
+	logger.Info("Setting up HTTP router and middleware...")
 	router := gin.Default()
+
+	// Add request logging middleware
+	router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		logger.WithFields(logrus.Fields{
+			"method":     param.Method,
+			"path":       param.Path,
+			"status":     param.StatusCode,
+			"latency":    param.Latency,
+			"client_ip":  param.ClientIP,
+			"user_agent": param.Request.UserAgent(),
+		}).Info("HTTP request processed")
+		return ""
+	}))
 
 	// Add CORS middleware
 	router.Use(func(c *gin.Context) {
@@ -70,8 +99,10 @@ func main() {
 
 		c.Next()
 	})
+	logger.Info("CORS middleware configured successfully")
 
 	// API routes
+	logger.Info("Configuring API routes...")
 	v1 := router.Group("/api/v1")
 	{
 		// CRUDL operations for subscriptions
@@ -84,25 +115,34 @@ func main() {
 		// Cost calculation endpoint
 		v1.GET("/subscriptions/cost", subscriptionHandler.CalculateTotalCost)
 	}
+	logger.WithField("routes_count", 6).Info("API routes configured successfully")
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
+		logger.Debug("Health check endpoint accessed")
 		c.JSON(200, gin.H{
 			"status":  "ok",
 			"service": "subscription-tracker-api",
 		})
 	})
+	logger.Info("Health check endpoint configured")
+
 	// Swagger documentation
+	logger.Info("Configuring Swagger documentation...")
 	router.Static("/docs", "./docs")
 	url := ginSwagger.URL("http://localhost:8080/docs/swagger.json")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+	logger.Info("Swagger documentation configured at /swagger/index.html")
 
 	// Start server
 	serverAddr := cfg.Server.Host + ":" + cfg.Server.Port
-	logger.WithField("address", serverAddr).Info("Server starting...")
+	logger.WithFields(logrus.Fields{
+		"address": serverAddr,
+		"version": "1.0",
+	}).Info("Starting HTTP server...")
 
 	if err := router.Run(serverAddr); err != nil {
-		logger.Fatal("Failed to start server: ", err)
+		logger.WithError(err).Fatal("Failed to start server")
 	}
 }
 
@@ -140,7 +180,7 @@ func setupLogger(loggingConfig config.LoggingConfig) *logrus.Logger {
 	logger.WithFields(logrus.Fields{
 		"level":  loggingConfig.Level,
 		"format": loggingConfig.Format,
-	}).Info("Logger initialized")
+	}).Info("Logger initialized successfully")
 
 	return logger
 }
