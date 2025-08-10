@@ -38,7 +38,7 @@ This project follows **Clean Architecture** principles with dependency inversion
 
 **Flow Example**: `HTTP Request → Handler → Service (business logic) → Repository → Database`
 
-> 📋 **[Detailed Architecture Documentation](docs/architecture.html)** - Interactive visual guide
+> 📋 **[Detailed Architecture Documentation](https://xoviwyrx.github.io/subscription-tracker-api/docs/architecture.html)** - Interactive visual guide
 
 ## 📊 Data Model
 
