@@ -16,6 +16,30 @@ This service provides functionality to manage and aggregate user subscription da
 - **Docker Support**: Easy deployment with Docker Compose
 - **Database Migrations**: Automated database schema management
 
+## 🏗️ Architecture
+
+This project follows **Clean Architecture** principles with dependency inversion for maintainability and testability:
+
+```
+🌐 Presentation Layer (HTTP Handlers, Validation, Middleware)
+           ↓ depends on interfaces
+🧠 Business Layer (Services, Business Logic, Transaction Management)
+           ↓ depends on interfaces  
+🗄️ Data Layer (Repository Pattern, GORM Operations)
+           ↓ depends on concrete implementations
+🔌 External Layer (PostgreSQL, Logger, Configuration)
+```
+
+**Key Benefits:**
+- **🧪 Testable**: Easy to mock dependencies for unit testing
+- **🔧 Maintainable**: Clear separation of concerns across layers
+- **📦 Modular**: Each layer has single responsibility
+- **🔄 Flexible**: Can swap implementations without code changes
+
+**Flow Example**: `HTTP Request → Handler → Service (business logic) → Repository → Database`
+
+> 📋 **[Detailed Architecture Documentation](docs/architecture.html)** - Interactive visual guide
+
 ## 📊 Data Model
 
 Each subscription record contains:
@@ -39,7 +63,10 @@ Each subscription record contains:
 
 - **Backend**: Go 1.24+
 - **Database**: PostgreSQL
+- **ORM**: GORM with repository pattern
+- **Router**: Gin HTTP framework
 - **Documentation**: Swagger/OpenAPI
+- **Logging**: Logrus structured logging
 - **Containerization**: Docker & Docker Compose
 - **Configuration**: YAML configuration files
 

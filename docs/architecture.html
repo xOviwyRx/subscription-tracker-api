@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Tracker API Architecture</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2em;
+            font-weight: 300;
+        }
+
+        .architecture {
+            padding: 40px;
+        }
+
+        .layer {
+            margin: 30px 0;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .layer:hover {
+            transform: translateY(-5px);
+        }
+
+        .layer-header {
+            padding: 20px 30px;
+            font-weight: bold;
+            font-size: 1.3em;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .layer-content {
+            padding: 25px 30px;
+            background: #f8f9fa;
+        }
+
+        /* Layer colors */
+        .presentation .layer-header {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .business .layer-header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+
+        .data .layer-header {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+
+        .external .layer-header {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+        }
+
+        .component {
+            display: inline-block;
+            margin: 8px;
+            padding: 12px 20px;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .component:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .interface-badge {
+            background: #f39c12;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #95a5a6;
+            margin: 20px 0;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .dependency-flow {
+            margin: 40px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .dependency-flow h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .flow-item {
+            display: inline-block;
+            margin: 10px 20px;
+            padding: 15px 25px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            position: relative;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .flow-item::after {
+            content: '→';
+            position: absolute;
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #3498db;
+            font-size: 1.5em;
+        }
+
+        .flow-item:last-child::after {
+            display: none;
+        }
+
+        .principle-box {
+            margin: 30px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            border-radius: 15px;
+        }
+
+        .principle-box h3 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .emoji {
+            font-size: 1.5em;
+        }
+
+        .code-example {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🏗️ Subscription Tracker API Architecture</h1>
+        <p>Layered architecture with dependency inversion principle</p>
+    </div>
+
+    <div class="architecture">
+
+        <!-- Presentation Layer -->
+        <div class="layer presentation">
+            <div class="layer-header">
+                <span class="emoji">🌐</span>
+                <span>PRESENTATION LAYER (Presentation Layer)</span>
+                <span class="interface-badge">High Level</span>
+            </div>
+            <div class="layer-content">
+                <div class="component">🎯 HTTP Handlers</div>
+                <div class="component">📝 Request/Response Models</div>
+                <div class="component">✅ Validation</div>
+                <div class="component">🔒 CORS Middleware</div>
+                <div class="component">📊 Swagger Documentation</div>
+
+                <div class="code-example">
+                    handlers.NewSubscriptionHandler(service <span style="color: #f39c12;">SubscriptionServiceInterface</span>, logger)</div>
+
+                <p><strong>Responsibility:</strong> HTTP requests/responses, input data validation, status codes</p>
+                <p><strong>Depends on:</strong> <span style="color: #f39c12;">SubscriptionServiceInterface</span> (abstraction!)</p>
+            </div>
+        </div>
+
+        <div class="arrow">⬇️</div>
+
+        <!-- Business Layer -->
+        <div class="layer business">
+            <div class="layer-header">
+                <span class="emoji">🧠</span>
+                <span>BUSINESS LAYER (Business Logic)</span>
+                <span class="interface-badge">Middle Level</span>
+            </div>
+            <div class="layer-content">
+                <div class="component">⚡ Subscription Service</div>
+                <div class="component">🔄 Transaction Management</div>
+                <div class="component">📋 Business Rules</div>
+                <div class="component">💰 Cost Calculation</div>
+                <div class="component">📅 Date Validation</div>
+
+                <div class="code-example">
+                    service.NewSubscriptionService(repo <span style="color: #27ae60;">SubscriptionRepositoryInterface</span>, logger)</div>
+
+                <p><strong>Responsibility:</strong> Business rules, data validation, transaction orchestration</p>
+                <p><strong>Depends on:</strong> <span style="color: #27ae60;">SubscriptionRepositoryInterface</span> (abstraction!)</p>
+            </div>
+        </div>
+
+        <div class="arrow">⬇️</div>
+
+        <!-- Data Layer -->
+        <div class="layer data">
+            <div class="layer-header">
+                <span class="emoji">🗄️</span>
+                <span>DATA LAYER (Data Layer)</span>
+                <span class="interface-badge">Low Level</span>
+            </div>
+            <div class="layer-content">
+                <div class="component">📦 Subscription Repository</div>
+                <div class="component">🔍 CRUD Operations</div>
+                <div class="component">🔄 Database Transactions</div>
+                <div class="component">📈 Query Optimization</div>
+                <div class="component">🛡️ Data Validation</div>
+
+                <div class="code-example">
+                    repository.NewSubscriptionRepository(db <span style="color: #9b59b6;">*gorm.DB</span>, logger)</div>
+
+                <p><strong>Responsibility:</strong> Database operations, migrations, working with GORM</p>
+                <p><strong>Depends on:</strong> <span style="color: #9b59b6;">*gorm.DB</span> (concrete implementation)</p>
+            </div>
+        </div>
+
+        <div class="arrow">⬇️</div>
+
+        <!-- External Layer -->
+        <div class="layer external">
+            <div class="layer-header">
+                <span class="emoji">🔌</span>
+                <span>EXTERNAL LAYER (External Services)</span>
+                <span class="interface-badge">Infrastructure</span>
+            </div>
+            <div class="layer-content">
+                <div class="component">🐘 PostgreSQL Database</div>
+                <div class="component">📝 Logrus Logger</div>
+                <div class="component">⚙️ Configuration</div>
+                <div class="component">🔄 Database Migrations</div>
+
+                <p><strong>Responsibility:</strong> External dependencies, database, file system, network</p>
+            </div>
+        </div>
+
+        <!-- Dependency Inversion Explanation -->
+        <div class="principle-box">
+            <h3><span class="emoji">🔄</span> Dependency Inversion Principle in Action</h3>
+            <div class="dependency-flow">
+                <div class="flow-item" style="color: #2c3e50;">Handler<br><small>(high level)</small></div>
+                <div class="flow-item" style="color: #2c3e50;">ServiceInterface<br><small>(abstraction)</small></div>
+                <div class="flow-item" style="color: #2c3e50;">Service<br><small>(middle level)</small></div>
+                <div class="flow-item" style="color: #2c3e50;">RepositoryInterface<br><small>(abstraction)</small></div>
+                <div class="flow-item" style="color: #2c3e50;">Repository<br><small>(low level)</small></div>
+            </div>
+
+            <p><strong>✅ What we get:</strong></p>
+            <ul>
+                <li>🧪 <strong>Testability:</strong> We can easily mock dependencies</li>
+                <li>🔧 <strong>Flexibility:</strong> We can change implementations without code changes</li>
+                <li>🔗 <strong>Loose coupling:</strong> Layers don't know about concrete implementations</li>
+                <li>📦 <strong>Modularity:</strong> Each layer has clear responsibility</li>
+            </ul>
+        </div>
+
+        <!-- Code Flow Example -->
+        <div style="background: #f8f9fa; padding: 25px; border-radius: 15px; margin: 30px 0;">
+            <h3 style="color: #2c3e50; display: flex; align-items: center; gap: 10px;">
+                <span class="emoji">🔄</span> Request Execution Flow
+            </h3>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center; margin: 20px 0;">
+                <div style="background: #e74c3c; color: white; padding: 15px 20px; border-radius: 10px; text-align: center; min-width: 120px;">
+                    <strong>1. Handler</strong><br>
+                    <small>Receives HTTP request</small>
+                </div>
+                <div style="font-size: 1.5em; color: #3498db;">→</div>
+                <div style="background: #3498db; color: white; padding: 15px 20px; border-radius: 10px; text-align: center; min-width: 120px;">
+                    <strong>2. Service</strong><br>
+                    <small>Executes business logic</small>
+                </div>
+                <div style="font-size: 1.5em; color: #3498db;">→</div>
+                <div style="background: #27ae60; color: white; padding: 15px 20px; border-radius: 10px; text-align: center; min-width: 120px;">
+                    <strong>3. Repository</strong><br>
+                    <small>Works with database</small>
+                </div>
+                <div style="font-size: 1.5em; color: #3498db;">→</div>
+                <div style="background: #9b59b6; color: white; padding: 15px 20px; border-radius: 10px; text-align: center; min-width: 120px;">
+                    <strong>4. Database</strong><br>
+                    <small>Returns data</small>
+                </div>
+            </div>
+
+            <p style="text-align: center; color: #7f8c8d; font-style: italic;">
+                Each layer only knows about its immediate dependencies through interfaces
+            </p>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>
