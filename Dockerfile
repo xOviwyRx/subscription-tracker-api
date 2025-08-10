@@ -41,6 +41,8 @@ COPY --from=builder /app/cmd/server/docs ./docs
 
 COPY --from=builder /app/db/migrations ./db/migrations
 
+COPY --from=builder /app/.env .
+
 # Expose port
 EXPOSE 8080
 
