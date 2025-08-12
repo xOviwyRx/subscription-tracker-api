@@ -219,7 +219,7 @@
                     handlers.NewSubscriptionHandler(service <span style="color: #f39c12;">SubscriptionServiceInterface</span>, logger)</div>
 
                 <p><strong>Responsibility:</strong> HTTP requests/responses, input data validation, status codes</p>
-                <p><strong>Depends on:</strong> <span style="color: #f39c12;">SubscriptionServiceInterface</span> (abstraction!)</p>
+                <p><strong>Depends on:</strong> <span style="color: #f39c12;">SubscriptionServiceInterface</span></p>
             </div>
         </div>
 
@@ -237,13 +237,13 @@
                 <div class="component">🔄 Transaction Management</div>
                 <div class="component">📋 Business Rules</div>
                 <div class="component">💰 Cost Calculation</div>
-                <div class="component">📅 Date Validation</div>
+                <div class="component">🛡️ Data Validation</div>
 
                 <div class="code-example">
                     service.NewSubscriptionService(repo <span style="color: #27ae60;">SubscriptionRepositoryInterface</span>, logger)</div>
 
                 <p><strong>Responsibility:</strong> Business rules, data validation, transaction orchestration</p>
-                <p><strong>Depends on:</strong> <span style="color: #27ae60;">SubscriptionRepositoryInterface</span> (abstraction!)</p>
+                <p><strong>Depends on:</strong> <span style="color: #27ae60;">SubscriptionRepositoryInterface</span></p>
             </div>
         </div>
 
@@ -259,14 +259,12 @@
             <div class="layer-content">
                 <div class="component">📦 Subscription Repository</div>
                 <div class="component">🔍 CRUD Operations</div>
-                <div class="component">🔄 Database Transactions</div>
                 <div class="component">📈 Query Optimization</div>
-                <div class="component">🛡️ Data Validation</div>
 
                 <div class="code-example">
                     repository.NewSubscriptionRepository(db <span style="color: #9b59b6;">*gorm.DB</span>, logger)</div>
 
-                <p><strong>Responsibility:</strong> Database operations, migrations, working with GORM</p>
+                <p><strong>Responsibility:</strong> Database operations, working with GORM</p>
                 <p><strong>Depends on:</strong> <span style="color: #9b59b6;">*gorm.DB</span> (concrete implementation)</p>
             </div>
         </div>
