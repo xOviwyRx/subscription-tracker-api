@@ -1,9 +1,9 @@
 package service
 
 import (
-	"errors"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"log"
 	"subscription_tracker_api/internal/models"
 	"testing"
 
@@ -23,22 +23,27 @@ func (m *MockSubscriptionRepository) Create(tx *gorm.DB, subscription *models.Su
 	return args.Error(0)
 }
 
-func (m *MockSubscriptionRepository) GetByID(id uint) (*models.Subscription, error) {
-	args := m.Called(id)
+func (m *MockSubscriptionRepository) GetByID(tx *gorm.DB, id uint) (*models.Subscription, error) {
+	args := m.Called(tx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.Subscription), args.Error(1)
 }
 
-func (m *MockSubscriptionRepository) UpdateWithTransaction(subscription *models.Subscription) error {
-	args := m.Called(subscription)
+func (m *MockSubscriptionRepository) Update(tx *gorm.DB, subscription *models.Subscription) error {
+	args := m.Called(tx, subscription)
 	return args.Error(0)
 }
 
-func (m *MockSubscriptionRepository) DeleteWithValidation(id uint) error {
-	args := m.Called(id)
+func (m *MockSubscriptionRepository) Delete(tx *gorm.DB, id uint) error {
+	args := m.Called(tx, id)
 	return args.Error(0)
+}
+
+func (m *MockSubscriptionRepository) ExistsByID(tx *gorm.DB, id uint) (bool, error) {
+	args := m.Called(tx, id)
+	return args.Bool(0), args.Error(1)
 }
 
 func (m *MockSubscriptionRepository) List(userID *uuid.UUID, serviceName *string, limit, offset int) ([]models.Subscription, error) {
@@ -207,7 +212,7 @@ func TestCreateSubscription_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestUpdateSubscriptionWithTransaction_Success(t *testing.T) {
+func TestUpdateSubscription_Success(t *testing.T) {
 	service, mockRepo := setupTestService()
 
 	userID := uuid.New()
@@ -224,10 +229,14 @@ func TestUpdateSubscriptionWithTransaction_Success(t *testing.T) {
 	}
 
 	// Mock getting existing subscription
-	mockRepo.On("GetByID", uint(1)).Return(existingSubscription, nil)
+	mockRepo.On("GetByID",
+		mock.AnythingOfType("*gorm.DB"),
+		uint(1),
+	).
+		Return(existingSubscription, nil)
 
 	// Mock successful update
-	mockRepo.On("UpdateWithTransaction", mock.MatchedBy(func(sub *models.Subscription) bool {
+	mockRepo.On("Update", mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(sub *models.Subscription) bool {
 		return sub.ID == 1 && sub.Price == 1199
 	})).Return(nil)
 
@@ -242,11 +251,11 @@ func TestUpdateSubscriptionWithTransaction_Success(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestUpdateSubscriptionWithTransaction_NotFound(t *testing.T) {
+func TestUpdateSubscription_NotFound(t *testing.T) {
 	service, mockRepo := setupTestService()
 
 	// Mock subscription not found
-	mockRepo.On("GetByID", uint(999)).Return(nil, errors.New("record not found"))
+	mockRepo.On("GetByID", mock.AnythingOfType("*gorm.DB"), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 	updates := map[string]interface{}{
 		"price": float64(1199),
@@ -257,6 +266,7 @@ func TestUpdateSubscriptionWithTransaction_NotFound(t *testing.T) {
 
 	// Assertions
 	assert.Error(t, err)
+	log.Println(err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "subscription not found")
 
