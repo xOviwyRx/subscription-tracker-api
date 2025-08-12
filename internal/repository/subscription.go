@@ -30,11 +30,12 @@ func (r *SubscriptionRepository) Create(tx *gorm.DB, subscription *models.Subscr
 }
 
 // GetByID retrieves a subscription by ID
-func (r *SubscriptionRepository) GetByID(id uint) (*models.Subscription, error) {
+func (r *SubscriptionRepository) GetByID(tx *gorm.DB, id uint) (*models.Subscription, error) {
 	r.logger.WithField("subscription_id", id).Info("Retrieving subscription by ID")
 
+	db := r.getDB(tx)
 	var subscription models.Subscription
-	err := r.db.First(&subscription, id).Error
+	err := db.First(&subscription, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			r.logger.WithField("subscription_id", id).Info("Subscription not found in database")
@@ -51,89 +52,16 @@ func (r *SubscriptionRepository) GetByID(id uint) (*models.Subscription, error) 
 	return &subscription, nil
 }
 
-// UpdateWithTransaction updates a subscription within a transaction
-func (r *SubscriptionRepository) UpdateWithTransaction(subscription *models.Subscription) error {
-	r.logger.WithField("subscription_id", subscription.ID).Info("Starting subscription update with transaction")
-
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// First check if the subscription exists
-		var existing models.Subscription
-		if err := tx.First(&existing, subscription.ID).Error; err != nil {
-			return err
-		}
-
-		// Check for conflicts if service name or dates are being changed
-		if subscription.ServiceName != existing.ServiceName ||
-			subscription.StartDate != existing.StartDate {
-
-			r.logger.WithFields(logrus.Fields{
-				"subscription_id": subscription.ID,
-				"old_service":     existing.ServiceName,
-				"new_service":     subscription.ServiceName,
-				"old_start_date":  existing.StartDate,
-				"new_start_date":  subscription.StartDate,
-			}).Info("Checking for conflicts due to service name or date changes")
-
-			var conflicting models.Subscription
-			err := tx.Where("user_id = ? AND service_name = ? AND start_date = ? AND id != ?",
-				subscription.UserID, subscription.ServiceName, subscription.StartDate, subscription.ID).
-				First(&conflicting).Error
-
-			if err == nil {
-				r.logger.WithFields(logrus.Fields{
-					"subscription_id": subscription.ID,
-					"conflicting_id":  conflicting.ID,
-					"service_name":    subscription.ServiceName,
-					"start_date":      subscription.StartDate,
-				}).Info("Conflict detected, preventing update")
-				return errors.New("another subscription already exists for this user and service in the same period")
-			}
-
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
-			}
-		}
-
-		// Update the subscription
-		err := tx.Save(subscription).Error
-		if err == nil {
-			r.logger.WithFields(logrus.Fields{
-				"subscription_id": subscription.ID,
-				"service_name":    subscription.ServiceName,
-			}).Info("Subscription updated in database successfully")
-		}
-		return err
-	})
+// Update updates a subscription
+func (r *SubscriptionRepository) Update(tx *gorm.DB, subscription *models.Subscription) error {
+	db := r.getDB(tx)
+	return db.Save(subscription).Error
 }
 
-// DeleteWithValidation deletes a subscription with validation within a transaction
-func (r *SubscriptionRepository) DeleteWithValidation(id uint) error {
-	r.logger.WithField("subscription_id", id).Info("Starting subscription deletion with validation")
-
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// First check if the subscription exists
-		var subscription models.Subscription
-		if err := tx.First(&subscription, id).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				r.logger.WithField("subscription_id", id).Info("Subscription not found for deletion")
-				return errors.New("subscription not found")
-			}
-			return err
-		}
-
-		r.logger.WithFields(logrus.Fields{
-			"subscription_id": id,
-			"service_name":    subscription.ServiceName,
-			"user_id":         subscription.UserID,
-		}).Info("Subscription found, proceeding with deletion")
-
-		// Perform the deletion
-		err := tx.Delete(&subscription).Error
-		if err == nil {
-			r.logger.WithField("subscription_id", id).Info("Subscription deleted from database successfully")
-		}
-		return err
-	})
+// Delete deletes a subscription
+func (r *SubscriptionRepository) Delete(tx *gorm.DB, id uint) error {
+	db := r.getDB(tx)
+	return db.Delete(&models.Subscription{}, id).Error
 }
 
 // List retrieves all subscriptions with optional filtering
@@ -258,5 +186,13 @@ func (r *SubscriptionRepository) ExistsByUserServiceAndDate(tx *gorm.DB, userID 
 	err := db.Model(&models.Subscription{}).
 		Where("user_id = ? AND service_name = ? AND start_date = ?", userID, serviceName, startDate).
 		Count(&count).Error
+	return count > 0, err
+}
+
+// ExistsByID checks if subscription exists
+func (r *SubscriptionRepository) ExistsByID(tx *gorm.DB, id uint) (bool, error) {
+	db := r.getDB(tx)
+	var count int64
+	err := db.Model(&models.Subscription{}).Where("id = ?", id).Count(&count).Error
 	return count > 0, err
 }

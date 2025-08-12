@@ -9,9 +9,10 @@ import (
 // SubscriptionRepositoryInterface defines the contract for subscription data operations
 type SubscriptionRepositoryInterface interface {
 	Create(tx *gorm.DB, subscription *models.Subscription) error
-	GetByID(id uint) (*models.Subscription, error)
-	UpdateWithTransaction(subscription *models.Subscription) error
-	DeleteWithValidation(id uint) error
+	ExistsByID(tx *gorm.DB, id uint) (bool, error)
+	GetByID(tx *gorm.DB, id uint) (*models.Subscription, error)
+	Update(tx *gorm.DB, subscription *models.Subscription) error
+	Delete(tx *gorm.DB, id uint) error
 	List(userID *uuid.UUID, serviceName *string, limit, offset int) ([]models.Subscription, error)
 	GetSubscriptionsInDateRange(userID *uuid.UUID, serviceName *string, startDate, endDate string) ([]models.Subscription, error)
 	CalculateTotalCostInDB(userID *uuid.UUID, serviceName *string, startDate, endDate string, totalMonths int) (int, error)
