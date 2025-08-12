@@ -84,8 +84,8 @@ func TestCreateSubscription_Success(t *testing.T) {
 		StartDate:   "01-2024",
 	}
 
-	// Setup mock
-	mockService.On("CreateSubscriptionWithTransaction", mock.AnythingOfType("*models.CreateSubscriptionRequest")).Return(expectedSubscription, nil)
+	// Fix: Change from CreateSubscriptionWithTransaction to CreateSubscription
+	mockService.On("CreateSubscription", mock.AnythingOfType("*models.CreateSubscriptionRequest")).Return(expectedSubscription, nil)
 
 	// Create request
 	jsonBody, _ := json.Marshal(requestBody)
@@ -214,7 +214,7 @@ func TestGetSubscription_NotFound(t *testing.T) {
 
 func TestDeleteSubscription_Success(t *testing.T) {
 	handler, mockService := setupTestHandler()
-	mockService.On("DeleteSubscriptionWithValidation", uint(1)).Return(nil)
+	mockService.On("DeleteSubscription", uint(1)).Return(nil)
 
 	// Use a full Gin router instead of just context
 	gin.SetMode(gin.TestMode)

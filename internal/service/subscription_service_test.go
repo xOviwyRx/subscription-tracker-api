@@ -2,9 +2,10 @@ package service
 
 import (
 	"errors"
-	"testing"
-
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"subscription_tracker_api/internal/models"
+	"testing"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -17,8 +18,8 @@ type MockSubscriptionRepository struct {
 	mock.Mock
 }
 
-func (m *MockSubscriptionRepository) CreateWithTransaction(subscription *models.Subscription) error {
-	args := m.Called(subscription)
+func (m *MockSubscriptionRepository) Create(tx *gorm.DB, subscription *models.Subscription) error {
+	args := m.Called(tx, subscription)
 	return args.Error(0)
 }
 
@@ -55,17 +56,27 @@ func (m *MockSubscriptionRepository) CalculateTotalCostInDB(userID *uuid.UUID, s
 	return args.Get(0).(int), args.Error(1)
 }
 
+func (m *MockSubscriptionRepository) ExistsByUserServiceAndDate(tx *gorm.DB, userID uuid.UUID, serviceName, startDate string) (bool, error) {
+	args := m.Called(tx, userID, serviceName, startDate)
+	return args.Bool(0), args.Error(1)
+}
+
 func setupTestService() (*SubscriptionService, *MockSubscriptionRepository) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect to test database: " + err.Error())
+	}
+
 	logger := logrus.New()
 	logger.SetLevel(logrus.PanicLevel) // Suppress logs during testing
 
 	mockRepo := &MockSubscriptionRepository{}
-	service := NewSubscriptionService(mockRepo, logger)
+	service := NewSubscriptionService(mockRepo, db, logger)
 
 	return service, mockRepo
 }
 
-func TestCreateSubscriptionWithTransaction_Success(t *testing.T) {
+func TestCreateSubscription_Success(t *testing.T) {
 	service, mockRepo := setupTestService()
 
 	userID := uuid.New()
@@ -76,12 +87,25 @@ func TestCreateSubscriptionWithTransaction_Success(t *testing.T) {
 		StartDate:   "01-2024",
 	}
 
-	// Setup mock to expect the subscription creation
-	mockRepo.On("CreateWithTransaction", mock.MatchedBy(func(sub *models.Subscription) bool {
-		return sub.ServiceName == "Netflix" && sub.Price == 999 && sub.UserID == userID
-	})).Return(nil).Run(func(args mock.Arguments) {
+	// Mock the duplicate check first
+	mockRepo.On("ExistsByUserServiceAndDate",
+		mock.AnythingOfType("*gorm.DB"),
+		userID,
+		"Netflix",
+		"01-2024").Return(false, nil)
+
+	// Mock the Create method with correct signature: (tx *gorm.DB, subscription *models.Subscription)
+	mockRepo.On("Create",
+		mock.AnythingOfType("*gorm.DB"),
+		mock.MatchedBy(func(sub *models.Subscription) bool {
+			return sub.ServiceName == "Netflix" &&
+				sub.Price == 999 &&
+				sub.UserID == userID &&
+				sub.StartDate == "01-2024"
+		})).Return(nil).Run(func(args mock.Arguments) {
 		// Simulate database setting ID
-		sub := args.Get(0).(*models.Subscription)
+		// args.Get(0) is *gorm.DB, args.Get(1) is *models.Subscription
+		sub := args.Get(1).(*models.Subscription)
 		sub.ID = 1
 	})
 
@@ -95,11 +119,12 @@ func TestCreateSubscriptionWithTransaction_Success(t *testing.T) {
 	assert.Equal(t, "Netflix", result.ServiceName)
 	assert.Equal(t, 999, result.Price)
 	assert.Equal(t, userID, result.UserID)
+	assert.Equal(t, "01-2024", result.StartDate)
 
 	mockRepo.AssertExpectations(t)
 }
 
-func TestCreateSubscriptionWithTransaction_ValidationErrors(t *testing.T) {
+func TestCreateSubscription_ValidationErrors(t *testing.T) {
 	service, _ := setupTestService()
 
 	testCases := []struct {
