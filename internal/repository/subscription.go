@@ -23,45 +23,10 @@ func NewSubscriptionRepository(db *gorm.DB, logger *logrus.Logger) *Subscription
 	}
 }
 
-// CreateWithTransaction creates a new subscription within a transaction
-func (r *SubscriptionRepository) CreateWithTransaction(subscription *models.Subscription) error {
-	r.logger.WithFields(logrus.Fields{
-		"user_id":      subscription.UserID,
-		"service_name": subscription.ServiceName,
-		"start_date":   subscription.StartDate,
-	}).Info("Starting subscription creation with transaction")
-
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Check if subscription already exists for the same user and service
-		var existing models.Subscription
-		err := tx.Where("user_id = ? AND service_name = ? AND start_date = ?",
-			subscription.UserID, subscription.ServiceName, subscription.StartDate).
-			First(&existing).Error
-
-		if err == nil {
-			r.logger.WithFields(logrus.Fields{
-				"user_id":      subscription.UserID,
-				"service_name": subscription.ServiceName,
-				"start_date":   subscription.StartDate,
-			}).Info("Duplicate subscription detected, preventing creation")
-			return errors.New("subscription already exists for this user and service in the same period")
-		}
-
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-
-		// Create the subscription
-		err = tx.Create(subscription).Error
-		if err == nil {
-			r.logger.WithFields(logrus.Fields{
-				"subscription_id": subscription.ID,
-				"user_id":         subscription.UserID,
-				"service_name":    subscription.ServiceName,
-			}).Info("Subscription created in database successfully")
-		}
-		return err
-	})
+// Create creates a new subscription
+func (r *SubscriptionRepository) Create(tx *gorm.DB, subscription *models.Subscription) error {
+	db := r.getDB(tx)
+	return db.Create(subscription).Error
 }
 
 // GetByID retrieves a subscription by ID
@@ -276,4 +241,22 @@ func (r *SubscriptionRepository) CalculateTotalCostInDB(userID *uuid.UUID, servi
 	}
 
 	return result.TotalCost, nil
+}
+
+// Helper to get the correct DB instance (transaction or regular)
+func (r *SubscriptionRepository) getDB(tx *gorm.DB) *gorm.DB {
+	if tx != nil {
+		return tx
+	}
+	return r.db
+}
+
+// ExistsByUserServiceAndDate checks for duplicate subscriptions
+func (r *SubscriptionRepository) ExistsByUserServiceAndDate(tx *gorm.DB, userID uuid.UUID, serviceName, startDate string) (bool, error) {
+	db := r.getDB(tx)
+	var count int64
+	err := db.Model(&models.Subscription{}).
+		Where("user_id = ? AND service_name = ? AND start_date = ?", userID, serviceName, startDate).
+		Count(&count).Error
+	return count > 0, err
 }

@@ -62,7 +62,7 @@ func main() {
 
 	// Initialize service
 	logger.Info("Initializing service layer...")
-	subscriptionService := service.NewSubscriptionService(subscriptionRepo, logger)
+	subscriptionService := service.NewSubscriptionService(subscriptionRepo, db.DB, logger)
 	logger.Info("Service layer initialized successfully")
 
 	// Initialize handlers

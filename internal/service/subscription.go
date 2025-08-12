@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,11 +14,16 @@ import (
 
 type SubscriptionService struct {
 	repo   repository.SubscriptionRepositoryInterface
+	db     *gorm.DB // for transaction control
 	logger *logrus.Logger
 }
 
-func NewSubscriptionService(repo repository.SubscriptionRepositoryInterface, logger *logrus.Logger) *SubscriptionService {
-	return &SubscriptionService{repo: repo, logger: logger}
+func NewSubscriptionService(repo repository.SubscriptionRepositoryInterface, db *gorm.DB, logger *logrus.Logger) *SubscriptionService {
+	return &SubscriptionService{
+		repo:   repo,
+		db:     db,
+		logger: logger,
+	}
 }
 
 // CreateSubscription creates a new subscription with transaction-based validation
@@ -43,6 +49,32 @@ func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionR
 		}
 	}
 
+	// Start transaction at service level
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		s.logger.WithError(tx.Error).Error("Failed to begin transaction")
+		return nil, errors.New("failed to start transaction")
+	}
+
+	// Safe defer: Rollback if panic occurs
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			s.logger.Error("Recovered from panic, transaction rolled back")
+		}
+	}()
+
+	// Check for duplicates
+	exists, err := s.repo.ExistsByUserServiceAndDate(tx, req.UserID, req.ServiceName, req.StartDate)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to check for duplicate subscription")
+		return nil, errors.New("failed to validate subscription uniqueness")
+	}
+
+	if exists {
+		return nil, errors.New("subscription already exists for this user, service, and date")
+	}
+
 	subscription := &models.Subscription{
 		ServiceName: req.ServiceName,
 		Price:       req.Price,
@@ -51,15 +83,21 @@ func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionR
 		EndDate:     req.EndDate,
 	}
 
-	// Use transaction-based creation for duplicate checking
-	err := s.repo.CreateWithTransaction(subscription)
+	// Create subscription using transaction
+	err = s.repo.Create(tx, subscription)
 	if err != nil {
 		s.logger.WithError(err).WithFields(logrus.Fields{
 			"user_id":      req.UserID,
 			"service_name": req.ServiceName,
 			"start_date":   req.StartDate,
-		}).Error("Failed to create subscription with transaction")
-		return nil, err
+		}).Error("Failed to create subscription")
+		return nil, errors.New("failed to create subscription")
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		s.logger.WithError(err).Error("Failed to commit transaction")
+		return nil, errors.New("failed to save subscription")
 	}
 
 	s.logger.WithFields(logrus.Fields{
