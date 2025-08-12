@@ -20,8 +20,8 @@ func NewSubscriptionService(repo repository.SubscriptionRepositoryInterface, log
 	return &SubscriptionService{repo: repo, logger: logger}
 }
 
-// CreateSubscriptionWithTransaction creates a new subscription with transaction-based validation
-func (s *SubscriptionService) CreateSubscriptionWithTransaction(req *models.CreateSubscriptionRequest) (*models.Subscription, error) {
+// CreateSubscription creates a new subscription with transaction-based validation
+func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionRequest) (*models.Subscription, error) {
 	// Enhanced validation
 	if req.ServiceName == "" || req.Price <= 0 || req.UserID == uuid.Nil {
 		return nil, errors.New("invalid input data: service_name, price, and user_id are required")
@@ -76,8 +76,8 @@ func (s *SubscriptionService) GetSubscriptionByID(id uint) (*models.Subscription
 	return s.repo.GetByID(id)
 }
 
-// UpdateSubscriptionWithTransaction updates an existing subscription with transaction-based validation
-func (s *SubscriptionService) UpdateSubscriptionWithTransaction(id uint, updates map[string]interface{}) (*models.Subscription, error) {
+// UpdateSubscription updates an existing subscription with transaction-based validation
+func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]interface{}) (*models.Subscription, error) {
 	// Get the current subscription first
 	subscription, err := s.repo.GetByID(id)
 	if err != nil {
@@ -154,8 +154,8 @@ func (s *SubscriptionService) UpdateSubscriptionWithTransaction(id uint, updates
 	return subscription, nil
 }
 
-// DeleteSubscriptionWithValidation deletes a subscription with validation
-func (s *SubscriptionService) DeleteSubscriptionWithValidation(id uint) error {
+// DeleteSubscription deletes a subscription with validation
+func (s *SubscriptionService) DeleteSubscription(id uint) error {
 	err := s.repo.DeleteWithValidation(id)
 	if err != nil {
 		s.logger.WithError(err).WithField("subscription_id", id).Error("Failed to delete subscription")

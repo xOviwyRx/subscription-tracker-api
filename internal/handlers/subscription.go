@@ -54,7 +54,7 @@ func (h *SubscriptionHandler) CreateSubscription(c *gin.Context) {
 		"start_date":   req.StartDate,
 	}).Info("Creating subscription with validated input")
 
-	subscription, err := h.service.CreateSubscriptionWithTransaction(&req)
+	subscription, err := h.service.CreateSubscription(&req)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to create subscription")
 
@@ -149,7 +149,7 @@ func (h *SubscriptionHandler) UpdateSubscription(c *gin.Context) {
 		"updates":         updates,
 	}).Info("Processing subscription update with validated input")
 
-	subscription, err := h.service.UpdateSubscriptionWithTransaction(uint(id), updates)
+	subscription, err := h.service.UpdateSubscription(uint(id), updates)
 	if err != nil {
 		h.logger.WithError(err).WithField("subscription_id", id).Error("Failed to update subscription")
 
@@ -190,7 +190,7 @@ func (h *SubscriptionHandler) DeleteSubscription(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteSubscriptionWithValidation(uint(id))
+	err = h.service.DeleteSubscription(uint(id))
 	if err != nil {
 		h.logger.WithError(err).WithField("subscription_id", id).Error("Failed to delete subscription")
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
