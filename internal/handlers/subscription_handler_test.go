@@ -22,7 +22,7 @@ type MockSubscriptionService struct {
 	mock.Mock
 }
 
-func (m *MockSubscriptionService) CreateSubscriptionWithTransaction(req *models.CreateSubscriptionRequest) (*models.Subscription, error) {
+func (m *MockSubscriptionService) CreateSubscription(req *models.CreateSubscriptionRequest) (*models.Subscription, error) {
 	args := m.Called(req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -38,13 +38,13 @@ func (m *MockSubscriptionService) GetSubscriptionByID(id uint) (*models.Subscrip
 	return args.Get(0).(*models.Subscription), args.Error(1)
 }
 
-func (m *MockSubscriptionService) DeleteSubscriptionWithValidation(id uint) error {
+func (m *MockSubscriptionService) DeleteSubscription(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)
 }
 
 // Add other interface methods as needed (can be empty for now)
-func (m *MockSubscriptionService) UpdateSubscriptionWithTransaction(id uint, updates map[string]interface{}) (*models.Subscription, error) {
+func (m *MockSubscriptionService) UpdateSubscription(id uint, updates map[string]interface{}) (*models.Subscription, error) {
 	return nil, nil
 }
 func (m *MockSubscriptionService) ListSubscriptions(userID *uuid.UUID, serviceName *string, limit, offset int) ([]models.Subscription, error) {
