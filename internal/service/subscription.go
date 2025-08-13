@@ -1,3 +1,4 @@
+// internal/service/subscription_service.go
 package service
 
 import (
@@ -8,20 +9,21 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"subscription_tracker_api/internal/infra/database"
 	"subscription_tracker_api/internal/models"
 	"subscription_tracker_api/internal/repository"
 )
 
 type SubscriptionService struct {
 	repo   repository.SubscriptionRepositoryInterface
-	db     *gorm.DB // for transaction control
+	txMgr  database.TransactionManager
 	logger *logrus.Logger
 }
 
-func NewSubscriptionService(repo repository.SubscriptionRepositoryInterface, db *gorm.DB, logger *logrus.Logger) *SubscriptionService {
+func NewSubscriptionService(repo repository.SubscriptionRepositoryInterface, txMgr database.TransactionManager, logger *logrus.Logger) *SubscriptionService {
 	return &SubscriptionService{
 		repo:   repo,
-		db:     db,
+		txMgr:  txMgr,
 		logger: logger,
 	}
 }
@@ -45,9 +47,11 @@ func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionR
 		}
 	}
 
-	return s.executeInTransaction(func(tx *gorm.DB) (*models.Subscription, error) {
+	result, err := s.txMgr.ExecuteWithResult(func(tx database.Transaction) (interface{}, error) {
+		gormTx := database.GetDB(tx)
+
 		// Business rule: Check for duplicates
-		exists, err := s.repo.ExistsByUserServiceAndDate(tx, req.UserID, req.ServiceName, req.StartDate)
+		exists, err := s.repo.ExistsByUserServiceAndDate(gormTx, req.UserID, req.ServiceName, req.StartDate)
 		if err != nil {
 			s.logger.WithError(err).Error("Failed to check for duplicate subscription")
 			return nil, errors.New("failed to validate subscription uniqueness")
@@ -65,7 +69,7 @@ func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionR
 			EndDate:     req.EndDate,
 		}
 
-		err = s.repo.Create(tx, subscription)
+		err = s.repo.Create(gormTx, subscription)
 		if err != nil {
 			s.logger.WithError(err).Error("Failed to create subscription")
 			return nil, errors.New("failed to create subscription")
@@ -79,6 +83,12 @@ func (s *SubscriptionService) CreateSubscription(req *models.CreateSubscriptionR
 
 		return subscription, nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.(*models.Subscription), nil
 }
 
 // GetSubscriptionByID retrieves a subscription by ID
@@ -88,9 +98,11 @@ func (s *SubscriptionService) GetSubscriptionByID(id uint) (*models.Subscription
 
 // UpdateSubscription updates an existing subscription with transaction-based validation
 func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]interface{}) (*models.Subscription, error) {
-	return s.executeInTransaction(func(tx *gorm.DB) (*models.Subscription, error) {
+	result, err := s.txMgr.ExecuteWithResult(func(tx database.Transaction) (interface{}, error) {
+		gormTx := database.GetDB(tx)
+
 		// Get current subscription
-		subscription, err := s.repo.GetByID(tx, id)
+		subscription, err := s.repo.GetByID(gormTx, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, errors.New("subscription not found")
@@ -105,7 +117,7 @@ func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]int
 		if serviceName, ok := updates["service_name"].(string); ok && serviceName != "" {
 			if serviceName != subscription.ServiceName {
 				// Business rule: Check for conflicts with new service name
-				exists, err := s.repo.ExistsByUserServiceAndDate(tx, subscription.UserID, serviceName, subscription.StartDate)
+				exists, err := s.repo.ExistsByUserServiceAndDate(gormTx, subscription.UserID, serviceName, subscription.StartDate)
 				if err != nil {
 					return nil, errors.New("failed to validate subscription uniqueness")
 				}
@@ -140,7 +152,7 @@ func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]int
 					return nil, errors.New("start_date must be before end_date")
 				}
 				// Check for conflicts with new start date
-				exists, err := s.repo.ExistsByUserServiceAndDate(tx, subscription.UserID, subscription.ServiceName, startDate)
+				exists, err := s.repo.ExistsByUserServiceAndDate(gormTx, subscription.UserID, subscription.ServiceName, startDate)
 				if err != nil {
 					return nil, errors.New("failed to validate subscription uniqueness")
 				}
@@ -171,7 +183,7 @@ func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]int
 
 		// Only update if there are changes
 		if hasChanges {
-			err = s.repo.Update(tx, subscription)
+			err = s.repo.Update(gormTx, subscription)
 			if err != nil {
 				s.logger.WithError(err).Error("Failed to update subscription")
 				return nil, errors.New("failed to update subscription")
@@ -185,13 +197,21 @@ func (s *SubscriptionService) UpdateSubscription(id uint, updates map[string]int
 
 		return subscription, nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.(*models.Subscription), nil
 }
 
 // DeleteSubscription deletes a subscription with validation
 func (s *SubscriptionService) DeleteSubscription(id uint) error {
-	return s.executeInTransactionVoid(func(tx *gorm.DB) error {
+	return s.txMgr.Execute(func(tx database.Transaction) error {
+		gormTx := database.GetDB(tx)
+
 		// Business validation: Check if exists
-		exists, err := s.repo.ExistsByID(tx, id)
+		exists, err := s.repo.ExistsByID(gormTx, id)
 		if err != nil {
 			return errors.New("failed to validate subscription")
 		}
@@ -200,7 +220,7 @@ func (s *SubscriptionService) DeleteSubscription(id uint) error {
 		}
 
 		// Delete subscription
-		err = s.repo.Delete(tx, id)
+		err = s.repo.Delete(gormTx, id)
 		if err != nil {
 			s.logger.WithError(err).Error("Failed to delete subscription")
 			return errors.New("failed to delete subscription")
@@ -271,44 +291,6 @@ func (s *SubscriptionService) CalculateTotalCost(req *models.CostCalculationRequ
 	}).Info("Total cost calculated with database aggregation")
 
 	return response, nil
-}
-
-func (s *SubscriptionService) executeInTransaction(fn func(*gorm.DB) (*models.Subscription, error)) (*models.Subscription, error) {
-	tx := s.db.Begin()
-	if tx.Error != nil {
-		return nil, errors.New("failed to start transaction")
-	}
-	defer tx.Rollback()
-
-	result, err := fn(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, errors.New("failed to commit transaction")
-	}
-
-	return result, nil
-}
-
-func (s *SubscriptionService) executeInTransactionVoid(fn func(*gorm.DB) error) error {
-	tx := s.db.Begin()
-	if tx.Error != nil {
-		return errors.New("failed to start transaction")
-	}
-	defer tx.Rollback()
-
-	err := fn(tx)
-	if err != nil {
-		return err
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return errors.New("failed to commit transaction")
-	}
-
-	return nil
 }
 
 // Helper function to calculate months between MM-YYYY dates

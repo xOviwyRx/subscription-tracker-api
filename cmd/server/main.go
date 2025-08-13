@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"subscription_tracker_api/internal/config"
 	"subscription_tracker_api/internal/handlers"
+	"subscription_tracker_api/internal/infra/database"
 	"subscription_tracker_api/internal/repository"
 	"subscription_tracker_api/internal/service"
 	"syscall"
@@ -55,14 +56,19 @@ func main() {
 	}
 	logger.Info("Database migrations completed successfully")
 
+	// Initialize transaction manager
+	logger.Info("Initializing transaction manager...")
+	txMgr := database.NewGormTransactionManager(db.DB)
+	logger.Info("Transaction manager initialized successfully")
+
 	// Initialize repository
 	logger.Info("Initializing repository layer...")
 	subscriptionRepo := repository.NewSubscriptionRepository(db.DB, logger)
 	logger.Info("Repository layer initialized successfully")
 
-	// Initialize service
+	// Initialize service with transaction manager
 	logger.Info("Initializing service layer...")
-	subscriptionService := service.NewSubscriptionService(subscriptionRepo, db.DB, logger)
+	subscriptionService := service.NewSubscriptionService(subscriptionRepo, txMgr, logger)
 	logger.Info("Service layer initialized successfully")
 
 	// Initialize handlers
