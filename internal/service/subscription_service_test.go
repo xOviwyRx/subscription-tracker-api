@@ -4,6 +4,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"log"
+	"subscription_tracker_api/internal/infra/database"
 	"subscription_tracker_api/internal/models"
 	"testing"
 
@@ -66,7 +67,89 @@ func (m *MockSubscriptionRepository) ExistsByUserServiceAndDate(tx *gorm.DB, use
 	return args.Bool(0), args.Error(1)
 }
 
-func setupTestService() (*SubscriptionService, *MockSubscriptionRepository) {
+// MockTransactionManager for testing
+type MockTransactionManager struct {
+	mock.Mock
+	db *gorm.DB // Keep reference to actual DB for transaction operations
+}
+
+func NewMockTransactionManager(db *gorm.DB) *MockTransactionManager {
+	return &MockTransactionManager{
+		db: db,
+	}
+}
+
+func (m *MockTransactionManager) Begin() (database.Transaction, error) {
+	args := m.Called()
+	if args.Error(1) != nil {
+		return nil, args.Error(1)
+	}
+	// Return actual transaction for testing - this allows real DB operations
+	return m.db.Begin(), nil
+}
+
+func (m *MockTransactionManager) Commit(tx database.Transaction) error {
+	args := m.Called(tx)
+	if gormTx, ok := tx.(*gorm.DB); ok && args.Error(0) == nil {
+		return gormTx.Commit().Error
+	}
+	return args.Error(0)
+}
+
+func (m *MockTransactionManager) Rollback(tx database.Transaction) error {
+	args := m.Called(tx)
+	if gormTx, ok := tx.(*gorm.DB); ok && args.Error(0) == nil {
+		return gormTx.Rollback().Error
+	}
+	return args.Error(0)
+}
+
+func (m *MockTransactionManager) Execute(fn func(tx database.Transaction) error) error {
+	args := m.Called(fn)
+
+	if len(args) > 0 && !args.Bool(0) { // First return value indicates whether to skip execution
+		tx := m.db.Begin()
+		defer tx.Rollback()
+
+		err := fn(tx)
+		if err != nil {
+			return err
+		}
+		return tx.Commit().Error
+	}
+
+	if len(args) > 1 {
+		return args.Error(1) // Return the mocked error
+	}
+	return nil
+}
+
+func (m *MockTransactionManager) ExecuteWithResult(fn func(tx database.Transaction) (interface{}, error)) (interface{}, error) {
+	args := m.Called(fn)
+
+	if len(args) > 0 && !args.Bool(0) { // First return value indicates whether to skip execution
+		tx := m.db.Begin()
+		defer tx.Rollback()
+
+		result, err := fn(tx)
+		if err != nil {
+			return nil, err
+		}
+
+		if commitErr := tx.Commit().Error; commitErr != nil {
+			return nil, commitErr
+		}
+
+		return result, nil
+	}
+
+	if len(args) > 2 {
+		return args.Get(1), args.Error(2) // Return mocked result and error
+	}
+	return nil, nil
+}
+
+func setupTestService() (*SubscriptionService, *MockSubscriptionRepository, *MockTransactionManager) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect to test database: " + err.Error())
@@ -76,13 +159,14 @@ func setupTestService() (*SubscriptionService, *MockSubscriptionRepository) {
 	logger.SetLevel(logrus.PanicLevel) // Suppress logs during testing
 
 	mockRepo := &MockSubscriptionRepository{}
-	service := NewSubscriptionService(mockRepo, db, logger)
+	mockTxMgr := NewMockTransactionManager(db)
+	service := NewSubscriptionService(mockRepo, mockTxMgr, logger)
 
-	return service, mockRepo
+	return service, mockRepo, mockTxMgr
 }
 
 func TestCreateSubscription_Success(t *testing.T) {
-	service, mockRepo := setupTestService()
+	service, mockRepo, mockTxMgr := setupTestService()
 
 	userID := uuid.New()
 	req := &models.CreateSubscriptionRequest{
@@ -92,6 +176,9 @@ func TestCreateSubscription_Success(t *testing.T) {
 		StartDate:   "01-2024",
 	}
 
+	// Mock transaction execution to actually run the function
+	mockTxMgr.On("ExecuteWithResult", mock.Anything).Return(false, nil, nil).Once()
+
 	// Mock the duplicate check first
 	mockRepo.On("ExistsByUserServiceAndDate",
 		mock.AnythingOfType("*gorm.DB"),
@@ -99,7 +186,7 @@ func TestCreateSubscription_Success(t *testing.T) {
 		"Netflix",
 		"01-2024").Return(false, nil)
 
-	// Mock the Create method with correct signature: (tx *gorm.DB, subscription *models.Subscription)
+	// Mock the Create method
 	mockRepo.On("Create",
 		mock.AnythingOfType("*gorm.DB"),
 		mock.MatchedBy(func(sub *models.Subscription) bool {
@@ -109,7 +196,6 @@ func TestCreateSubscription_Success(t *testing.T) {
 				sub.StartDate == "01-2024"
 		})).Return(nil).Run(func(args mock.Arguments) {
 		// Simulate database setting ID
-		// args.Get(0) is *gorm.DB, args.Get(1) is *models.Subscription
 		sub := args.Get(1).(*models.Subscription)
 		sub.ID = 1
 	})
@@ -127,10 +213,11 @@ func TestCreateSubscription_Success(t *testing.T) {
 	assert.Equal(t, "01-2024", result.StartDate)
 
 	mockRepo.AssertExpectations(t)
+	mockTxMgr.AssertExpectations(t)
 }
 
 func TestCreateSubscription_ValidationErrors(t *testing.T) {
-	service, _ := setupTestService()
+	service, _, _ := setupTestService()
 
 	testCases := []struct {
 		name        string
@@ -213,7 +300,7 @@ func TestCreateSubscription_ValidationErrors(t *testing.T) {
 }
 
 func TestUpdateSubscription_Success(t *testing.T) {
-	service, mockRepo := setupTestService()
+	service, mockRepo, mockTxMgr := setupTestService()
 
 	userID := uuid.New()
 	existingSubscription := &models.Subscription{
@@ -228,17 +315,19 @@ func TestUpdateSubscription_Success(t *testing.T) {
 		"price": float64(1199),
 	}
 
+	// Mock transaction execution to actually run the function
+	mockTxMgr.On("ExecuteWithResult", mock.Anything).Return(false, nil, nil).Once()
+
 	// Mock getting existing subscription
 	mockRepo.On("GetByID",
 		mock.AnythingOfType("*gorm.DB"),
 		uint(1),
-	).
-		Return(existingSubscription, nil)
+	).Return(existingSubscription, nil).Once()
 
 	// Mock successful update
 	mockRepo.On("Update", mock.AnythingOfType("*gorm.DB"), mock.MatchedBy(func(sub *models.Subscription) bool {
 		return sub.ID == 1 && sub.Price == 1199
-	})).Return(nil)
+	})).Return(nil).Once()
 
 	// Call service
 	result, err := service.UpdateSubscription(1, updates)
@@ -249,13 +338,17 @@ func TestUpdateSubscription_Success(t *testing.T) {
 	assert.Equal(t, 1199, result.Price)
 
 	mockRepo.AssertExpectations(t)
+	mockTxMgr.AssertExpectations(t)
 }
 
 func TestUpdateSubscription_NotFound(t *testing.T) {
-	service, mockRepo := setupTestService()
+	service, mockRepo, mockTxMgr := setupTestService()
+
+	// Mock transaction execution to actually run the function
+	mockTxMgr.On("ExecuteWithResult", mock.Anything).Return(false, nil, nil).Once()
 
 	// Mock subscription not found
-	mockRepo.On("GetByID", mock.AnythingOfType("*gorm.DB"), uint(999)).Return(nil, gorm.ErrRecordNotFound)
+	mockRepo.On("GetByID", mock.AnythingOfType("*gorm.DB"), uint(999)).Return(nil, gorm.ErrRecordNotFound).Once()
 
 	updates := map[string]interface{}{
 		"price": float64(1199),
@@ -271,10 +364,33 @@ func TestUpdateSubscription_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "subscription not found")
 
 	mockRepo.AssertExpectations(t)
+	mockTxMgr.AssertExpectations(t)
+}
+
+func TestDeleteSubscription_Success(t *testing.T) {
+	service, mockRepo, mockTxMgr := setupTestService()
+
+	// Mock transaction execution to actually run the function
+	mockTxMgr.On("Execute", mock.Anything).Return(false, nil).Once()
+
+	// Mock subscription exists
+	mockRepo.On("ExistsByID", mock.AnythingOfType("*gorm.DB"), uint(1)).Return(true, nil).Once()
+
+	// Mock successful delete
+	mockRepo.On("Delete", mock.AnythingOfType("*gorm.DB"), uint(1)).Return(nil).Once()
+
+	// Call service
+	err := service.DeleteSubscription(1)
+
+	// Assertions
+	assert.NoError(t, err)
+
+	mockRepo.AssertExpectations(t)
+	mockTxMgr.AssertExpectations(t)
 }
 
 func TestCalculateTotalCost_Success(t *testing.T) {
-	service, mockRepo := setupTestService()
+	service, mockRepo, _ := setupTestService()
 
 	userID := uuid.New()
 	serviceName := "Netflix"
@@ -316,7 +432,7 @@ func TestCalculateTotalCost_Success(t *testing.T) {
 }
 
 func TestCalculateTotalCost_ValidationErrors(t *testing.T) {
-	service, _ := setupTestService()
+	service, _, _ := setupTestService()
 
 	testCases := []struct {
 		name        string
