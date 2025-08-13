@@ -59,7 +59,7 @@ The project includes comprehensive unit tests for critical layers:
 
 ### Service Tests
 - **Business Logic Validation**: Input validation and business rules
-- **Transaction Management**: Database transaction handling
+- **Transaction Execution**: Database transaction execution
 - **Cost Calculation**: Subscription cost aggregation logic
 - **Date Validation**: MM-YYYY format validation and date range checks
 - **Mock Repository Integration**: Isolated testing with repository mocks
@@ -67,6 +67,7 @@ The project includes comprehensive unit tests for critical layers:
 **Test Coverage:**
 - `CreateSubscription` - Success, validation errors, duplicate checks
 - `UpdateSubscription` - Success and not found scenarios
+- `DeleteSubscription` - Success scenario
 - `CalculateTotalCost` - Cost aggregation and validation
 - Date utility functions (`isValidDate`, `calculateMonthsBetween`)
 
